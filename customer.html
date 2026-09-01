@@ -114,16 +114,10 @@ input:focus,textarea:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(16
 
     <div class="step active" id="step-phone">
       <div class="fr"><label class="fl">Registered Mobile Number</label><input type="tel" id="li-phone" value="9840011223" placeholder="10-digit mobile"/></div>
-      <button class="btn btn-p btn-f" onclick="sendOtp()" disabled>Loading…</button>
+      <div class="fr"><label class="fl">PIN (given to you by your designer)</label><input type="text" id="li-pin" class="otp-input" maxlength="4" value="1234"/></div>
+      <button class="btn btn-p btn-f" onclick="doCustomerLogin()" disabled>Loading…</button>
       <div id="phone-err" style="color:var(--no-tx);font-size:12px;margin-top:10px;display:none;"></div>
-      <div class="login-hint">Demo number pre-filled · 9840011223</div>
-    </div>
-
-    <div class="step" id="step-otp">
-      <div class="fr"><label class="fl">Enter OTP sent to your phone</label><input type="text" id="li-otp" class="otp-input" maxlength="4" value="1234"/></div>
-      <button class="btn btn-c btn-f" onclick="verifyOtp()">Verify &amp; Continue →</button>
-      <div id="otp-err" style="color:var(--no-tx);font-size:12px;margin-top:10px;display:none;"></div>
-      <div class="login-hint">Demo OTP is always 1234</div>
+      <div class="login-hint">Demo number 9840011223 · PIN 1234</div>
     </div>
   </div>
 </div>
@@ -227,30 +221,17 @@ let PAY_MILESTONE_ID = null;
 
 YS.init().then(()=>{
   const btn = document.querySelector('#step-phone .btn-p');
-  if(btn){ btn.disabled=false; btn.textContent='Send OTP →'; }
+  if(btn){ btn.disabled=false; btn.textContent='Log In →'; }
 });
 YS.onChange(()=>{ if(session && PROJECT) renderAll(); });
 
-async function sendOtp(){
+async function doCustomerLogin(){
   const phone = document.getElementById('li-phone').value.replace(/\D/g,'');
+  const pin = document.getElementById('li-pin').value.trim();
   const errEl = document.getElementById('phone-err');
   errEl.style.display='none';
   try{
-    const res = await YS.requestOtp(phone);
-    document.getElementById('step-phone').classList.remove('active');
-    document.getElementById('step-otp').classList.add('active');
-    window._pendingPhone = phone;
-    if(res.debug_otp){ document.getElementById('li-otp').value = res.debug_otp; } // DEMO_MODE convenience only
-  }catch(e){
-    errEl.style.display='block'; errEl.textContent = e.message || 'No project found for this number yet.';
-  }
-}
-async function verifyOtp(){
-  const otp = document.getElementById('li-otp').value.trim();
-  const errEl = document.getElementById('otp-err');
-  errEl.style.display='none';
-  try{
-    const { customer, project } = await YS.verifyOtp(window._pendingPhone, otp);
+    const { customer, project } = await YS.customerLogin(phone, pin);
     session = customer;
     await YS.ready();
     PROJECT = project || YS.find('projects', customer.project_id);
@@ -260,13 +241,12 @@ async function verifyOtp(){
     document.getElementById('cust-proj').textContent = PROJECT ? PROJECT.project_name : 'No active project';
     renderAll();
   }catch(e){
-    errEl.style.display='block'; errEl.textContent = e.message || 'Incorrect OTP.';
+    errEl.style.display='block'; errEl.textContent = e.message || 'Invalid phone number or PIN.';
   }
 }
 function logout(){
   session=null; PROJECT=null;
   document.getElementById('app-wrap').classList.remove('show');
-  document.getElementById('step-otp').classList.remove('active');
   document.getElementById('step-phone').classList.add('active');
   document.getElementById('login-screen').style.display='flex';
 }

@@ -322,8 +322,9 @@ async function advanceStatus(id, status){
   if(status==='booked'){
     if(!YS.all('projects').find(p=>p.lead_id===id)){
       const l = YS.find('leads', id);
-      await YS.createProjectFromLead(l, {designer_id: session.role==='designer'?session.id:l.assigned_to});
-      alert('🎉 Lead booked! A live project has been created and the customer can now log into their portal via OTP.');
+      const proj = await YS.createProjectFromLead(l, {designer_id: session.role==='designer'?session.id:l.assigned_to});
+      const pinMsg = proj._generatedPin ? '\n\nCustomer portal PIN for '+l.name+' ('+l.phone+'): '+proj._generatedPin+'\nShare this with them — they log in with phone + PIN.' : '';
+      alert('🎉 Lead booked! A live project has been created.'+pinMsg);
     }
   }
   renderAll(); openLeadDetail(id);

@@ -41,7 +41,7 @@ create table team_profiles (
 
 create table customer_accounts (
   id uuid primary key default gen_random_uuid(),
-  project_id uuid references projects(id),
+  project_id uuid,                 -- FK added below, once "projects" exists
   name text,
   phone text unique not null,
   otp text,                        -- OTP-based login, phone as username
@@ -99,6 +99,11 @@ create table projects (
   actual_handover_date date,
   created_at timestamptz default now()
 );
+
+-- Now that "projects" exists, wire up the FK we deferred above.
+alter table customer_accounts
+  add constraint customer_accounts_project_id_fkey
+  foreign key (project_id) references projects(id);
 
 -- 9-stage default project journey, one row seeded per project
 create table project_stages (

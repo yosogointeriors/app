@@ -531,7 +531,10 @@ async function convertToProject(id){
   if(YS.all('projects').find(p=>p.lead_id===id)){ alert('A project already exists for this lead.'); return; }
   const proj = await YS.createProjectFromLead(l);
   closeModal('lead-modal'); renderAll(); showTab('projects');
-  setTimeout(()=>openProjectDetail(proj.id), 100);
+  setTimeout(()=>{
+    openProjectDetail(proj.id);
+    if(proj._generatedPin) alert('🎉 Project created!\n\nCustomer portal PIN for '+l.name+' ('+l.phone+'): '+proj._generatedPin+'\n\nShare this with the customer — they log in with their phone number + this PIN.');
+  }, 100);
 }
 
 function renderProjects(){
@@ -561,12 +564,18 @@ function renderProjects(){
 
 function openProjectDetail(id){
   const p = YS.find('projects', id);
+  const l = YS.find('leads', p.lead_id);
   const stages = YS.all('project_stages').filter(s=>s.project_id===id).sort((a,b)=>a.stage_order-b.stage_order);
   const photos = YS.all('stage_photos').filter(ph=>ph.project_id===id);
   const milestones = YS.all('payment_milestones').filter(m=>m.project_id===id);
   const designs = YS.all('design_files').filter(d=>d.project_id===id);
   document.getElementById('pm-title').textContent = p.project_name;
   document.getElementById('pm-body').innerHTML = `
+    <div class="adm-card" style="background:var(--surf2);">
+      <div class="adm-card-title" style="font-size:13px;">Customer Portal Access</div>
+      <div class="adm-card-sub">${l?l.name+' · '+l.phone:'—'}</div>
+      <button class="btn btn-c btn-sm" onclick="generateCustomerPin('${p.id}')">🔑 Generate / Reset PIN</button>
+    </div>
     <div class="adm-card-title" style="font-size:13px;">Stage Progress</div>
     ${stages.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--bdr);">
       <span>${s.stage_order}. ${s.stage_name}</span>
@@ -582,6 +591,16 @@ function openProjectDetail(id){
     </div>`).join('')}
   `;
   document.getElementById('proj-modal').classList.add('open');
+}
+
+async function generateCustomerPin(projectId){
+  const p = YS.find('projects', projectId);
+  const l = YS.find('leads', p.lead_id);
+  if(!l || !l.phone){ alert('No phone number on file for this project\'s customer.'); return; }
+  try{
+    const { pin } = await YS.setCustomerPin({ project_id: p.id, name: l.name, phone: l.phone });
+    alert('🔑 Customer portal PIN for '+l.name+' ('+l.phone+'): '+pin+'\n\nShare this with the customer — they log in with their phone number + this PIN.');
+  }catch(e){ alert('Could not generate PIN: '+e.message); }
 }
 
 function renderCatalog(){

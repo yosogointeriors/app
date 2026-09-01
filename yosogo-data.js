@@ -128,8 +128,11 @@ const YS = (function () {
     })));
 
     if (lead.phone) {
-      try { await provisionCustomer({ project_id: project.id, name: lead.name, phone: lead.phone }); }
-      catch (e) { console.warn('[YOSOGO] customer portal login could not be auto-created — you can add it manually.', e); }
+      try {
+        const { pin } = await setCustomerPin({ project_id: project.id, name: lead.name, phone: lead.phone });
+        project._generatedPin = pin; // transient, not persisted — for the caller to show/share once
+      }
+      catch (e) { console.warn('[YOSOGO] customer portal login could not be auto-created — you can generate a PIN manually from the project.', e); }
     }
     return project;
   }
@@ -151,9 +154,8 @@ const YS = (function () {
 
   // type: 'admin' | 'team'
   function login(type, email, password) { return workerFetch('/api/login', { type, email, password }); }
-  function requestOtp(phone) { return workerFetch('/api/otp/request', { phone }); }
-  function verifyOtp(phone, otp) { return workerFetch('/api/otp/verify', { phone, otp }); }
-  function provisionCustomer({ project_id, name, phone }) { return workerFetch('/api/customer/provision', { project_id, name, phone }); }
+  function customerLogin(phone, pin) { return workerFetch('/api/customer/login', { phone, pin }); }
+  function setCustomerPin({ project_id, name, phone, pin }) { return workerFetch('/api/customer/set-pin', { project_id, name, phone, pin }); }
   function createTeamMember({ name, email, phone, role, city }) { return workerFetch('/api/team/create', { name, email, phone, role, city }); }
   function toggleTeamMember(id) { return workerFetch('/api/team/toggle', { id }); }
 
@@ -161,7 +163,7 @@ const YS = (function () {
     init, ready, onChange, refresh,
     all, find, insert, update, remove,
     createProjectFromLead, DEFAULT_STAGES,
-    login, requestOtp, verifyOtp, provisionCustomer,
+    login, customerLogin, setCustomerPin,
     createTeamMember, toggleTeamMember
   };
 })();

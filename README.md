@@ -2,12 +2,12 @@
 
 Stack: **GitHub Pages** (hosts the 4 static HTML portals) · **Supabase** (database +
 realtime sync) · **Cloudflare Worker** (the only place secrets live — login,
-customer OTP, and the Facebook Lead Ads webhook).
+customer PIN login, and the Facebook Lead Ads webhook).
 
 ```
 Browser (GitHub Pages) ──anon key, read/write operational data──▶ Supabase
        │
-       └──login / OTP / FB webhook──▶ Cloudflare Worker ──service_role key──▶ Supabase
+       └──login / PIN / FB webhook──▶ Cloudflare Worker ──service_role key──▶ Supabase
                                               ▲
                                     Meta (Facebook Lead Ads)
 ```
@@ -21,7 +21,7 @@ Browser (GitHub Pages) ──anon key, read/write operational data──▶ Supa
 3. (Optional, for testing) paste `seed.sql` → Run. This creates demo logins:
    - Admin: `admin@yosogo.in` / `admin123`
    - Team: `divya@yosogo.in`, `arjun@yosogo.in`, `sneha@yosogo.in`, `manoj@yosogo.in` — all `team123`
-   - Customer demo login: phone `9840011223`, OTP `1234` (only while `DEMO_MODE=true` on the Worker)
+   - Customer demo login: phone `9840011223`, PIN `1234`
 4. **Settings → API** → copy your **Project URL** and **`anon` `public`** key. You'll also need the **`service_role`** key in step 3 — copy it now but keep it secret (don't put it in `config.js` or GitHub).
 5. **Settings → API → Realtime** should already be on. Realtime is what keeps all 4 portals live-synced.
 
@@ -51,8 +51,6 @@ Edit `wrangler.toml`:
 - `SUPABASE_URL` → your project URL (same as above)
 - `ALLOWED_ORIGIN` → your future GitHub Pages URL, e.g. `https://yourname.github.io`
   (or your repo's Pages URL — see step 4)
-- `DEMO_MODE` → keep `"true"` while testing (it echoes the OTP back so you can
-  log in without an SMS provider); set to `"false"` before real launch
 
 Set the secrets (never go in a file):
 ```bash
@@ -118,9 +116,12 @@ one local machine.
 - **Password hashing**: `handleLogin` in the Worker currently compares plain
   text. Before storing real credentials, hash them (e.g. with a library that
   runs in Workers, like `bcryptjs`) and compare hashes instead.
-- **SMS OTP**: `DEMO_MODE=true` returns the OTP directly so you can test
-  without an SMS account. For production, set `DEMO_MODE=false` and wire an
-  SMS provider (MSG91, Twilio, etc.) into `handleOtpRequest` in the Worker.
+- **Customer PIN login**: customers log in with their phone number + a 4-digit
+  PIN that an admin or team member generates for them (via "🔑 Generate/Reset
+  PIN" on a project, or automatically when a lead is booked). The PIN is
+  shown once to whoever generated it — share it with the customer yourself
+  (WhatsApp, call, etc.); it is never sent automatically. No SMS provider
+  needed.
 - **Write access**: operational tables (leads, projects, payments, etc.)
   currently allow the anon key full read/write, gated only by knowing the
   portal URL — appropriate for an internal tool with a small team. As YOSOGO
