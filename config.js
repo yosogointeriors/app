@@ -7,8 +7,8 @@
    it lives only in the Cloudflare Worker's secrets (see worker/README.md).
    ============================================================================ */
 window.YOSOGO_CONFIG = {
-  SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co",
-  SUPABASE_ANON_KEY: "YOUR-ANON-PUBLIC-KEY",
+  SUPABASE_URL: "https://bpbqycdbqkbfcbghielk.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_ZNanrjAo5mMy487GlRsCWg_k-4Dyas5",
 
   // Your deployed Cloudflare Worker, e.g. https://yosogo-api.yourname.workers.dev
   WORKER_URL: "https://yosogo-api.YOUR-SUBDOMAIN.workers.dev"
