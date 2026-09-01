@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YOSOGO — Admin / HQ Portal</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --ink:#241A12;--copper:#B5762F;--copper-lt:#D99B4E;
+  --bg:#F7F3EC;--surf:#FFFFFF;--surf2:#F1ECE3;--surf3:#E6DFD2;
+  --bdr:rgba(36,26,18,0.10);--bdr2:rgba(36,26,18,0.17);
+  --txt:#241A12;--mut:#6B5D4F;--hnt:#A2917E;
+  --ok-bg:#E7F3E1;--ok-tx:#2F6B2A;
+  --no-bg:#FBEAE7;--no-tx:#A3352B;
+  --inf-bg:#E7EFF8;--inf-tx:#2A5490;
+  --wrn-bg:#FBF1DD;--wrn-tx:#8A5B0B;
+  --rad:8px;--rad-lg:12px;--rad-xl:16px;--sidebar-w:225px;
+}
+html,body{height:100%;background:var(--bg);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--txt);min-height:100vh;}
+a{color:inherit;}
+
+/* LOGIN */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ink);padding:20px;}
+.login-box{background:var(--surf);border-radius:var(--rad-xl);padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.login-logo{font-weight:900;font-size:20px;letter-spacing:1px;color:var(--ink);margin-bottom:2px;}
+.login-logo span{color:var(--copper);}
+.login-sub{font-size:12.5px;color:var(--mut);margin-bottom:24px;}
+.login-hint{font-size:11.5px;color:var(--hnt);margin-top:14px;text-align:center;}
+
+/* LAYOUT */
+.admin-wrap{display:none;min-height:100vh;}
+.admin-wrap.show{display:flex;}
+.admin-sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--ink);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:20;}
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.sidebar-logo b{color:#fff;font-size:16px;letter-spacing:0.5px;}
+.sidebar-logo b span{color:var(--copper-lt);}
+.sidebar-logo-sub{font-size:10.5px;color:rgba(255,255,255,0.5);margin-top:4px;}
+.adm-nav{flex:1;padding:10px 0;overflow-y:auto;}
+.adm-nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13px;font-weight:500;color:rgba(255,255,255,0.62);cursor:pointer;transition:all .15s;border-left:3px solid transparent;}
+.adm-nav-item:hover{background:rgba(255,255,255,0.07);color:#fff;}
+.adm-nav-item.active{background:rgba(217,155,78,0.14);color:var(--copper-lt);border-left-color:var(--copper-lt);}
+.adm-nav-icon{font-size:15px;width:18px;text-align:center;}
+.admin-sidebar-footer{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1);}
+.admin-sidebar-footer .who{font-size:12px;color:#fff;font-weight:600;}
+.admin-sidebar-footer .role{font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;}
+
+.admin-main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.admin-topbar{background:var(--surf);border-bottom:0.5px solid var(--bdr);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.admin-topbar-title{font-size:15px;font-weight:700;}
+.admin-content{padding:24px 28px;flex:1;}
+.admin-tab{display:none;}
+.admin-tab.active{display:block;}
+
+/* SHARED */
+.btn{padding:9px 16px;font-size:13px;font-weight:600;border-radius:var(--rad);cursor:pointer;border:0.5px solid var(--bdr2);background:var(--surf2);color:var(--txt);font-family:inherit;transition:all .15s;display:inline-block;text-align:center;}
+.btn:hover{background:var(--surf3);}
+.btn-p{background:var(--ink);color:#fff;border-color:var(--ink);}
+.btn-p:hover{background:#3a2b1c;}
+.btn-c{background:var(--copper);color:#fff;border-color:var(--copper);}
+.btn-c:hover{background:#9c6529;}
+.btn-d{background:var(--no-bg);color:var(--no-tx);border-color:transparent;}
+.btn-s{background:var(--ok-bg);color:var(--ok-tx);border-color:transparent;}
+.btn-sm{padding:5px 11px;font-size:12px;}
+.btn-xs{padding:4px 9px;font-size:11px;font-weight:600;}
+.btn-f{width:100%;display:block;}
+
+.pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap;}
+.p-ok{background:var(--ok-bg);color:var(--ok-tx);}
+.p-no{background:var(--no-bg);color:var(--no-tx);}
+.p-inf{background:var(--inf-bg);color:var(--inf-tx);}
+.p-wrn{background:var(--wrn-bg);color:var(--wrn-tx);}
+
+.fl{font-size:12px;font-weight:700;color:var(--mut);margin-bottom:5px;display:block;}
+input[type=text],input[type=tel],input[type=email],input[type=password],input[type=number],input[type=date],select,textarea{
+  width:100%;padding:8px 11px;font-size:13px;border:0.5px solid var(--bdr2);border-radius:var(--rad);background:var(--surf2);color:var(--txt);outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--copper);box-shadow:0 0 0 3px rgba(181,118,47,0.12);}
+textarea{resize:vertical;min-height:70px;line-height:1.5;}
+.fr{margin-bottom:12px;}
+
+.adm-page-title{font-size:22px;font-weight:700;margin-bottom:4px;}
+.adm-page-sub{font-size:13px;color:var(--mut);margin-bottom:22px;}
+
+.stat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px;}
+.stat-card{background:var(--surf);border:0.5px solid var(--bdr);border-radius:var(--rad-lg);padding:16px 18px;}
+.stat-num{font-size:24px;font-weight:700;margin-bottom:3px;}
+.stat-lbl{font-size:11.5px;color:var(--mut);}
+
+.adm-card{background:var(--surf);border:0.5px solid var(--bdr);border-radius:var(--rad-lg);padding:18px 20px;margin-bottom:16px;}
+.adm-card-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.adm-card-sub{font-size:12px;color:var(--mut);margin-bottom:16px;}
+
+table{width:100%;border-collapse:collapse;}
+th{font-size:10.5px;font-weight:700;color:var(--hnt);text-transform:uppercase;letter-spacing:.06em;padding:9px 12px;text-align:left;border-bottom:0.5px solid var(--bdr2);background:var(--surf2);}
+td{font-size:12.5px;padding:10px 12px;border-bottom:0.5px solid var(--bdr);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--surf2);cursor:pointer;}
+
+.adm-tabs{display:flex;gap:4px;border-bottom:0.5px solid var(--bdr);margin-bottom:20px;overflow-x:auto;}
+.adm-tab-btn{padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;color:var(--mut);white-space:nowrap;transition:all .15s;font-family:inherit;}
+.adm-tab-btn.active{color:var(--copper);border-bottom-color:var(--copper);}
+
+.filter-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.filter-row select,.filter-row input{width:auto;min-width:130px;}
+
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(36,26,18,0.5);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:40px 16px;overflow-y:auto;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--surf);border-radius:var(--rad-xl);width:100%;max-width:620px;padding:0;overflow:hidden;}
+.modal-box.wide{max-width:820px;}
+.modal-head{padding:18px 22px;border-bottom:0.5px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;background:var(--surf2);}
+.modal-head h3{font-size:16px;font-weight:700;}
+.modal-close{cursor:pointer;font-size:20px;color:var(--mut);background:none;border:none;line-height:1;}
+.modal-body{padding:20px 22px;max-height:70vh;overflow-y:auto;}
+.modal-foot{padding:14px 22px;border-top:0.5px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end;background:var(--surf2);}
+
+/* progress bar for project stage */
+.stage-bar{display:flex;gap:3px;margin:8px 0;}
+.stage-seg{flex:1;height:6px;border-radius:3px;background:var(--surf3);}
+.stage-seg.done{background:#3B7C33;}
+.stage-seg.active{background:var(--copper);}
+
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px;}
+.gallery img{width:100%;height:90px;object-fit:cover;border-radius:8px;border:0.5px solid var(--bdr);}
+
+.note-item{padding:9px 0;border-bottom:0.5px solid var(--bdr);font-size:12.5px;}
+.note-item:last-child{border-bottom:none;}
+.note-meta{font-size:10.5px;color:var(--hnt);margin-top:2px;}
+
+@media(max-width:900px){
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .form-2col,.form-3col{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">YOSO<span>GO</span></div>
+    <div class="login-sub">Admin / HQ Portal</div>
+    <div class="fr">
+      <label class="fl">Email</label>
+      <input type="email" id="li-email" value="admin@yosogo.in"/>
+    </div>
+    <div class="fr">
+      <label class="fl">Password</label>
+      <input type="password" id="li-pass" value="admin123"/>
+    </div>
+    <button class="btn btn-p btn-f" onclick="doLogin()" disabled>Loading…</button>
+    <div id="li-err" style="color:var(--no-tx);font-size:12px;margin-top:10px;display:none;"></div>
+    <div class="login-hint">Demo login pre-filled · admin@yosogo.in / admin123</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="admin-wrap" id="admin-wrap">
+  <aside class="admin-sidebar">
+    <div class="sidebar-logo"><b>YOSO<span>GO</span></b><div class="sidebar-logo-sub">Admin / HQ Portal</div></div>
+    <nav class="adm-nav" id="adm-nav">
+      <div class="adm-nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><span class="adm-nav-icon">📊</span> Dashboard</div>
+      <div class="adm-nav-item" data-tab="leads" onclick="showTab('leads')"><span class="adm-nav-icon">📥</span> Leads Inbox</div>
+      <div class="adm-nav-item" data-tab="projects" onclick="showTab('projects')"><span class="adm-nav-icon">🏗</span> Projects</div>
+      <div class="adm-nav-item" data-tab="catalog" onclick="showTab('catalog')"><span class="adm-nav-icon">🎨</span> Catalog</div>
+      <div class="adm-nav-item" data-tab="teams" onclick="showTab('teams')"><span class="adm-nav-icon">👥</span> Teams</div>
+      <div class="adm-nav-item" data-tab="settings" onclick="showTab('settings')"><span class="adm-nav-icon">⚙️</span> Payment Settings</div>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <div class="who" id="who-name">Admin</div>
+      <div class="role">HQ / Super Admin</div>
+      <button class="btn btn-sm btn-f" onclick="logout()">Log Out</button>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <div class="admin-topbar-title" id="topbar-title">Dashboard</div>
+      <a href="index.html" class="btn btn-sm">← Portal Hub</a>
+    </div>
+    <div class="admin-content">
+
+      <!-- DASHBOARD -->
+      <div class="admin-tab active" id="tab-dashboard">
+        <div class="adm-page-title">Welcome back 👋</div>
+        <div class="adm-page-sub">Here's how YOSOGO's pipeline and projects look today.</div>
+        <div class="stat-grid" id="dash-stats"></div>
+        <div class="adm-card">
+          <div class="adm-card-title">Leads by Source</div>
+          <div class="adm-card-sub">Where your pipeline is coming from</div>
+          <div id="dash-sources"></div>
+        </div>
+        <div class="adm-card">
+          <div class="adm-card-title">Pipeline by Status</div>
+          <div id="dash-pipeline"></div>
+        </div>
+      </div>
+
+      <!-- LEADS -->
+      <div class="admin-tab" id="tab-leads">
+        <div class="adm-page-title">Leads Inbox</div>
+        <div class="adm-page-sub">Every lead — Facebook Lead Ads, website, referral, WhatsApp — lands here first.</div>
+        <div class="filter-row">
+          <select id="f-status" onchange="renderLeads()">
+            <option value="">All statuses</option>
+            <option value="new">New</option>
+            <option value="contacted">Contacted</option>
+            <option value="site_visit_scheduled">Site Visit Scheduled</option>
+            <option value="site_visit_done">Site Visit Done</option>
+            <option value="design_presented">Design Presented</option>
+            <option value="quotation_sent">Quotation Sent</option>
+            <option value="negotiation">Negotiation</option>
+            <option value="booked">Booked</option>
+            <option value="lost">Lost</option>
+          </select>
+          <select id="f-source" onchange="renderLeads()">
+            <option value="">All sources</option>
+            <option value="facebook_ad">Facebook Ad</option>
+            <option value="website">Website</option>
+            <option value="referral">Referral</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="manual">Manual</option>
+          </select>
+          <select id="f-city" onchange="renderLeads()">
+            <option value="">All cities</option>
+            <option value="Chennai">Chennai</option>
+            <option value="Coimbatore">Coimbatore</option>
+          </select>
+          <input type="text" id="f-search" placeholder="Search name / phone…" oninput="renderLeads()"/>
+          <button class="btn btn-c" style="margin-left:auto;" onclick="openLeadForm()">+ Add Lead Manually</button>
+        </div>
+        <div class="adm-card" style="padding:0;overflow-x:auto;">
+          <table>
+            <thead><tr><th>Lead</th><th>Source</th><th>City</th><th>Project</th><th>Assigned</th><th>Status</th><th>Created</th></tr></thead>
+            <tbody id="leads-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PROJECTS -->
+      <div class="admin-tab" id="tab-projects">
+        <div class="adm-page-title">Projects</div>
+        <div class="adm-page-sub">Every booked lead becomes a project here — tracked across 9 stages to handover.</div>
+        <div id="projects-list"></div>
+      </div>
+
+      <!-- CATALOG -->
+      <div class="admin-tab" id="tab-catalog">
+        <div class="adm-page-title">Material Catalog</div>
+        <div class="adm-page-sub">Carcass, shutter, hardware &amp; countertop options used in quotations.</div>
+        <div class="adm-card">
+          <div class="adm-card-title">Add Material</div>
+          <div class="form-3col" style="margin-bottom:10px;">
+            <div><label class="fl">Category</label><select id="cat-category"><option value="carcass">Carcass</option><option value="shutter">Shutter</option><option value="hardware">Hardware</option><option value="countertop">Countertop</option></select></div>
+            <div><label class="fl">Name</label><input type="text" id="cat-name" placeholder="e.g. HDHMR Board"/></div>
+            <div><label class="fl">Finish</label><input type="text" id="cat-finish" placeholder="e.g. Matte"/></div>
+          </div>
+          <div class="form-2col" style="margin-bottom:12px;">
+            <div><label class="fl">Price / sqft (₹)</label><input type="number" id="cat-price" placeholder="0"/></div>
+          </div>
+          <button class="btn btn-c" onclick="addCatalogItem()">+ Add to Catalog</button>
+        </div>
+        <div class="adm-card" style="padding:0;overflow-x:auto;">
+          <table><thead><tr><th>Category</th><th>Name</th><th>Finish</th><th>Price / sqft</th><th></th></tr></thead><tbody id="catalog-tbody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- TEAMS -->
+      <div class="admin-tab" id="tab-teams">
+        <div class="adm-page-title">Teams</div>
+        <div class="adm-page-sub">Sales Head, Designers &amp; Site Managers — region-scoped access.</div>
+        <div class="adm-card">
+          <div class="adm-card-title">Add Team Member</div>
+          <div class="form-3col" style="margin-bottom:10px;">
+            <div><label class="fl">Name</label><input type="text" id="tm-name"/></div>
+            <div><label class="fl">Email</label><input type="email" id="tm-email"/></div>
+            <div><label class="fl">Phone</label><input type="text" id="tm-phone"/></div>
+          </div>
+          <div class="form-2col" style="margin-bottom:12px;">
+            <div><label class="fl">Role</label><select id="tm-role"><option value="sales_head">Sales Head</option><option value="designer">Designer</option><option value="site_manager">Site Manager</option></select></div>
+            <div><label class="fl">City / Region</label><input type="text" id="tm-city" placeholder="e.g. Chennai"/></div>
+          </div>
+          <button class="btn btn-c" onclick="addTeamMember()">+ Add Team Member</button>
+        </div>
+        <div class="adm-card" style="padding:0;overflow-x:auto;">
+          <table><thead><tr><th>Name</th><th>Role</th><th>City</th><th>Phone</th><th>Status</th><th></th></tr></thead><tbody id="teams-tbody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="admin-tab" id="tab-settings">
+        <div class="adm-page-title">Payment Settings</div>
+        <div class="adm-page-sub">UPI &amp; bank details shown to customers on the payment screen.</div>
+        <div class="adm-card" style="max-width:480px;">
+          <div class="fr"><label class="fl">UPI ID</label><input type="text" id="set-upi"/></div>
+          <div class="fr"><label class="fl">Bank Details</label><textarea id="set-bank"></textarea></div>
+          <button class="btn btn-p" onclick="saveSettings()">Save Settings</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- LEAD DETAIL MODAL -->
+<div class="modal-overlay" id="lead-modal">
+  <div class="modal-box wide">
+    <div class="modal-head"><h3 id="lm-title">Lead Detail</h3><button class="modal-close" onclick="closeModal('lead-modal')">×</button></div>
+    <div class="modal-body" id="lm-body"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('lead-modal')">Close</button></div>
+  </div>
+</div>
+
+<!-- ADD LEAD MODAL -->
+<div class="modal-overlay" id="add-lead-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Add Lead Manually</h3><button class="modal-close" onclick="closeModal('add-lead-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-2col">
+        <div class="fr"><label class="fl">Name</label><input type="text" id="al-name"/></div>
+        <div class="fr"><label class="fl">Phone</label><input type="text" id="al-phone"/></div>
+        <div class="fr"><label class="fl">Email</label><input type="email" id="al-email"/></div>
+        <div class="fr"><label class="fl">City</label><input type="text" id="al-city" placeholder="Chennai"/></div>
+        <div class="fr"><label class="fl">Project Type</label>
+          <select id="al-ptype"><option value="kitchen">Kitchen only</option><option value="wardrobe">Wardrobe only</option><option value="kitchen_wardrobe">Kitchen + Wardrobe</option><option value="full_home">Full Home Interiors</option></select>
+        </div>
+        <div class="fr"><label class="fl">Source</label>
+          <select id="al-source"><option value="manual">Manual / Walk-in</option><option value="website">Website</option><option value="referral">Referral</option><option value="whatsapp">WhatsApp</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('add-lead-modal')">Cancel</button><button class="btn btn-c" onclick="saveNewLead()">Add Lead</button></div>
+  </div>
+</div>
+
+<!-- PROJECT DETAIL MODAL -->
+<div class="modal-overlay" id="proj-modal">
+  <div class="modal-box wide">
+    <div class="modal-head"><h3 id="pm-title">Project</h3><button class="modal-close" onclick="closeModal('proj-modal')">×</button></div>
+    <div class="modal-body" id="pm-body"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('proj-modal')">Close</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="yosogo-data.js"></script>
+<script>
+let adminSession = null;
+let CURRENT_LEAD_ID = null;
+
+YS.init().then(()=>{
+  const btn = document.querySelector('#login-screen .btn-p');
+  if(btn){ btn.disabled=false; btn.textContent='Sign In →'; }
+});
+YS.onChange(()=>{ if(adminSession) renderAll(); });
+
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  const errEl = document.getElementById('li-err');
+  errEl.style.display='none';
+  try{
+    const { account } = await YS.login('admin', email, pass);
+    adminSession = account;
+    await YS.ready();
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('admin-wrap').classList.add('show');
+    document.getElementById('who-name').textContent = account.name;
+    renderAll();
+  }catch(e){
+    errEl.style.display='block'; errEl.textContent = e.message || 'Invalid email or password.';
+  }
+}
+function logout(){ adminSession=null; document.getElementById('admin-wrap').classList.remove('show'); document.getElementById('login-screen').style.display='flex'; }
+
+function showTab(tab){
+  document.querySelectorAll('.adm-nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));
+  const titles={dashboard:'Dashboard',leads:'Leads Inbox',projects:'Projects',catalog:'Material Catalog',teams:'Teams',settings:'Payment Settings'};
+  document.getElementById('topbar-title').textContent = titles[tab];
+  renderAll();
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+const STATUS_LABEL = {new:'New',contacted:'Contacted',site_visit_scheduled:'Site Visit Scheduled',site_visit_done:'Site Visit Done',design_presented:'Design Presented',quotation_sent:'Quotation Sent',negotiation:'Negotiation',booked:'Booked',lost:'Lost'};
+const STATUS_PILL = {new:'p-inf',contacted:'p-inf',site_visit_scheduled:'p-wrn',site_visit_done:'p-wrn',design_presented:'p-wrn',quotation_sent:'p-wrn',negotiation:'p-wrn',booked:'p-ok',lost:'p-no'};
+const SOURCE_LABEL = {facebook_ad:'📘 Facebook Ad',website:'🌐 Website',referral:'🤝 Referral',whatsapp:'💬 WhatsApp',manual:'✍ Manual'};
+
+function renderAll(){
+  renderDashboard(); renderLeads(); renderProjects(); renderCatalog(); renderTeams(); renderSettings();
+}
+
+function renderDashboard(){
+  const leads = YS.all('leads');
+  const projects = YS.all('projects');
+  const payments = YS.all('payments');
+  const totalRevenue = payments.filter(p=>p.verified).reduce((s,p)=>s+Number(p.amount||0),0);
+  const pipelineValue = YS.all('quotations').filter(q=>q.status!=='draft').reduce((s,q)=>s+Number(q.total_amount||0),0);
+  const today = new Date().toDateString();
+  const newToday = leads.filter(l=>new Date(l.created_at).toDateString()===today).length;
+
+  document.getElementById('dash-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${leads.length}</div><div class="stat-lbl">Total Leads</div></div>
+    <div class="stat-card"><div class="stat-num">${newToday}</div><div class="stat-lbl">New Today</div></div>
+    <div class="stat-card"><div class="stat-num">${projects.filter(p=>p.status==='active').length}</div><div class="stat-lbl">Active Projects</div></div>
+    <div class="stat-card"><div class="stat-num">₹${(totalRevenue/100000).toFixed(1)}L</div><div class="stat-lbl">Revenue Collected</div></div>
+    <div class="stat-card"><div class="stat-num">₹${(pipelineValue/100000).toFixed(1)}L</div><div class="stat-lbl">Quoted Pipeline</div></div>
+  `;
+
+  const bySource = {};
+  leads.forEach(l=>{ bySource[l.source]=(bySource[l.source]||0)+1; });
+  document.getElementById('dash-sources').innerHTML = Object.entries(bySource).map(([k,v])=>{
+    const pct = Math.round(v/leads.length*100);
+    return `<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;"><span>${SOURCE_LABEL[k]||k}</span><span style="color:var(--mut);">${v} leads</span></div>
+    <div style="background:var(--surf3);border-radius:6px;height:8px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:var(--copper);"></div></div></div>`;
+  }).join('') || '<div style="color:var(--mut);font-size:13px;">No leads yet.</div>';
+
+  const byStatus = {};
+  leads.forEach(l=>{ byStatus[l.status]=(byStatus[l.status]||0)+1; });
+  document.getElementById('dash-pipeline').innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;">${
+    Object.keys(STATUS_LABEL).map(k=>`<div style="background:var(--surf2);border-radius:10px;padding:10px 16px;min-width:110px;text-align:center;">
+      <div style="font-size:20px;font-weight:700;">${byStatus[k]||0}</div><div style="font-size:11px;color:var(--mut);">${STATUS_LABEL[k]}</div></div>`).join('')
+  }</div>`;
+}
+
+function renderLeads(){
+  const fStatus=document.getElementById('f-status')?.value||'';
+  const fSource=document.getElementById('f-source')?.value||'';
+  const fCity=document.getElementById('f-city')?.value||'';
+  const fSearch=(document.getElementById('f-search')?.value||'').toLowerCase();
+  let leads = YS.all('leads').sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  if(fStatus) leads=leads.filter(l=>l.status===fStatus);
+  if(fSource) leads=leads.filter(l=>l.source===fSource);
+  if(fCity) leads=leads.filter(l=>l.city===fCity);
+  if(fSearch) leads=leads.filter(l=>(l.name||'').toLowerCase().includes(fSearch)||(l.phone||'').includes(fSearch));
+  const team = YS.all('team_profiles');
+  document.getElementById('leads-tbody').innerHTML = leads.map(l=>{
+    const assignee = team.find(t=>t.id===l.assigned_to);
+    return `<tr onclick="openLeadDetail('${l.id}')">
+      <td><b>${l.name}</b><br><span style="color:var(--mut);font-size:11.5px;">${l.phone}</span></td>
+      <td>${SOURCE_LABEL[l.source]||l.source}${l.fb_campaign_name?`<br><span style="color:var(--hnt);font-size:10.5px;">${l.fb_campaign_name}</span>`:''}</td>
+      <td>${l.city||'—'}</td>
+      <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
+      <td>${assignee?assignee.name:'<span style="color:var(--hnt);">Unassigned</span>'}</td>
+      <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span></td>
+      <td style="color:var(--mut);font-size:11.5px;">${new Date(l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px;">No leads match these filters.</td></tr>`;
+}
+
+function openLeadForm(){ document.getElementById('add-lead-modal').classList.add('open'); }
+async function saveNewLead(){
+  const name=document.getElementById('al-name').value.trim();
+  const phone=document.getElementById('al-phone').value.trim();
+  if(!name||!phone){ alert('Name and phone are required.'); return; }
+  await YS.insert('leads',{
+    name, phone, email:document.getElementById('al-email').value.trim(),
+    city:document.getElementById('al-city').value.trim(),
+    project_type:document.getElementById('al-ptype').value,
+    source:document.getElementById('al-source').value,
+    status:'new', assigned_to:null
+  });
+  closeModal('add-lead-modal'); renderAll(); showTab('leads');
+}
+
+function openLeadDetail(id){
+  CURRENT_LEAD_ID=id;
+  const l = YS.find('leads', id);
+  const team = YS.all('team_profiles');
+  const notes = YS.all('lead_notes').filter(n=>n.lead_id===id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  document.getElementById('lm-title').textContent = l.name + ' — ' + (l.city||'');
+  document.getElementById('lm-body').innerHTML = `
+    <div class="form-2col" style="margin-bottom:16px;">
+      <div><span class="fl">Phone</span>${l.phone}</div>
+      <div><span class="fl">Email</span>${l.email||'—'}</div>
+      <div><span class="fl">Source</span>${SOURCE_LABEL[l.source]||l.source}${l.fb_campaign_name?' · '+l.fb_campaign_name:''}</div>
+      <div><span class="fl">Project</span>${(l.project_type||'').replace('_',' + ')} ${l.bhk?'· '+l.bhk:''} ${l.budget_range?'· ₹'+l.budget_range:''}</div>
+    </div>
+    <div class="form-2col" style="margin-bottom:16px;">
+      <div>
+        <label class="fl">Status</label>
+        <select id="lm-status" onchange="quickUpdateStatus('${id}')">
+          ${Object.keys(STATUS_LABEL).map(k=>`<option value="${k}" ${l.status===k?'selected':''}>${STATUS_LABEL[k]}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="fl">Assign To</label>
+        <select id="lm-assign" onchange="quickUpdateAssign('${id}')">
+          <option value="">Unassigned</option>
+          ${team.filter(t=>t.role!=='site_manager').map(t=>`<option value="${t.id}" ${l.assigned_to===t.id?'selected':''}>${t.name} (${t.role.replace('_',' ')})</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    ${l.status==='booked' ? `<button class="btn btn-c btn-f" style="margin-bottom:16px;" onclick="convertToProject('${id}')">🏗 Convert to Live Project →</button>`:''}
+    ${l.status==='lost' && l.lost_reason ? `<div class="adm-card" style="background:var(--no-bg);margin-bottom:16px;"><b>Lost reason:</b> ${l.lost_reason}</div>`:''}
+    <div class="adm-card-title" style="font-size:13px;margin-bottom:8px;">Notes &amp; Activity</div>
+    <div class="fr" style="display:flex;gap:8px;">
+      <input type="text" id="lm-note-text" placeholder="Add a note…" style="flex:1;"/>
+      <button class="btn btn-p btn-sm" onclick="addLeadNote('${id}')">Add</button>
+    </div>
+    <div>${notes.map(n=>`<div class="note-item">${n.note}<div class="note-meta">${new Date(n.created_at).toLocaleString('en-IN')}</div></div>`).join('') || '<div style="color:var(--mut);font-size:12.5px;">No notes yet.</div>'}</div>
+  `;
+  document.getElementById('lead-modal').classList.add('open');
+}
+async function quickUpdateStatus(id){
+  const v = document.getElementById('lm-status').value;
+  const patch = {status:v};
+  if(v==='lost'){ const r=prompt('Reason for losing this lead?'); if(r) patch.lost_reason=r; }
+  await YS.update('leads', id, patch);
+  renderAll(); openLeadDetail(id);
+}
+async function quickUpdateAssign(id){
+  const v = document.getElementById('lm-assign').value || null;
+  await YS.update('leads', id, {assigned_to:v});
+  renderAll();
+}
+async function addLeadNote(id){
+  const txt = document.getElementById('lm-note-text').value.trim();
+  if(!txt) return;
+  await YS.insert('lead_notes',{lead_id:id, note:txt, added_by_type:'admin', added_by_id:adminSession.id});
+  openLeadDetail(id);
+}
+async function convertToProject(id){
+  const l = YS.find('leads', id);
+  if(YS.all('projects').find(p=>p.lead_id===id)){ alert('A project already exists for this lead.'); return; }
+  const proj = await YS.createProjectFromLead(l);
+  closeModal('lead-modal'); renderAll(); showTab('projects');
+  setTimeout(()=>openProjectDetail(proj.id), 100);
+}
+
+function renderProjects(){
+  const projects = YS.all('projects');
+  const team = YS.all('team_profiles');
+  document.getElementById('projects-list').innerHTML = projects.map(p=>{
+    const stages = YS.all('project_stages').filter(s=>s.project_id===p.id).sort((a,b)=>a.stage_order-b.stage_order);
+    const done = stages.filter(s=>s.status==='completed').length;
+    const designer = team.find(t=>t.id===p.designer_id);
+    const paid = YS.all('payments').filter(pay=>pay.project_id===p.id && pay.verified).reduce((s,pay)=>s+Number(pay.amount||0),0);
+    return `<div class="adm-card" style="cursor:pointer;" onclick="openProjectDetail('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="adm-card-title">${p.project_name}</div>
+          <div class="adm-card-sub" style="margin-bottom:8px;">${p.city} · Designer: ${designer?designer.name:'—'} · Value ₹${(p.total_value/100000).toFixed(1)}L</div>
+        </div>
+        <span class="pill ${p.status==='active'?'p-ok':'p-inf'}">${p.status}</span>
+      </div>
+      <div class="stage-bar">${stages.map(s=>`<div class="stage-seg ${s.status==='completed'?'done':s.status==='in_progress'?'active':''}" title="${s.stage_name}"></div>`).join('')}</div>
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut);">
+        <span>${stages.find(s=>s.status==='in_progress')?.stage_name || (done===stages.length?'Completed':'Not started')}</span>
+        <span>₹${(paid/100000).toFixed(1)}L collected of ₹${(p.total_value/100000).toFixed(1)}L</span>
+      </div>
+    </div>`;
+  }).join('') || `<div class="adm-card" style="text-align:center;color:var(--mut);">No projects yet. Mark a lead as "Booked" then convert it to a project.</div>`;
+}
+
+function openProjectDetail(id){
+  const p = YS.find('projects', id);
+  const stages = YS.all('project_stages').filter(s=>s.project_id===id).sort((a,b)=>a.stage_order-b.stage_order);
+  const photos = YS.all('stage_photos').filter(ph=>ph.project_id===id);
+  const milestones = YS.all('payment_milestones').filter(m=>m.project_id===id);
+  const designs = YS.all('design_files').filter(d=>d.project_id===id);
+  document.getElementById('pm-title').textContent = p.project_name;
+  document.getElementById('pm-body').innerHTML = `
+    <div class="adm-card-title" style="font-size:13px;">Stage Progress</div>
+    ${stages.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--bdr);">
+      <span>${s.stage_order}. ${s.stage_name}</span>
+      <span class="pill ${s.status==='completed'?'p-ok':s.status==='in_progress'?'p-wrn':'p-inf'}">${s.status.replace('_',' ')}</span>
+    </div>`).join('')}
+    <div class="adm-card-title" style="font-size:13px;margin-top:18px;">Design Files (${designs.length})</div>
+    <div class="gallery">${designs.map(d=>`<div><img src="${d.file_url}"/><div style="font-size:10.5px;margin-top:3px;">${d.room_name} ${d.customer_approved?'✅':'⏳'}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded.</span>'}</div>
+    <div class="adm-card-title" style="font-size:13px;margin-top:18px;">Site &amp; Factory Photos (${photos.length})</div>
+    <div class="gallery">${photos.map(ph=>`<div><img src="${ph.photo_url}"/><div style="font-size:10.5px;margin-top:3px;">${ph.caption||''}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
+    <div class="adm-card-title" style="font-size:13px;margin-top:18px;">Payment Milestones</div>
+    ${milestones.map(m=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--bdr);font-size:12.5px;">
+      <span>${m.milestone_name} (${m.percentage}%)</span><span>₹${Number(m.amount).toLocaleString('en-IN')} <span class="pill ${m.status==='paid'?'p-ok':'p-wrn'}" style="margin-left:6px;">${m.status}</span></span>
+    </div>`).join('')}
+  `;
+  document.getElementById('proj-modal').classList.add('open');
+}
+
+function renderCatalog(){
+  document.getElementById('catalog-tbody').innerHTML = YS.all('catalog_materials').map(c=>`
+    <tr><td style="text-transform:capitalize;">${c.category}</td><td>${c.name}</td><td>${c.finish||'—'}</td><td>${c.price_per_sqft?'₹'+c.price_per_sqft:'—'}</td>
+    <td><button class="btn btn-d btn-xs" onclick="event.stopPropagation();deleteCatalog('${c.id}')">Remove</button></td></tr>
+  `).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:20px;">No materials yet.</td></tr>`;
+}
+async function addCatalogItem(){
+  const name=document.getElementById('cat-name').value.trim();
+  if(!name){ alert('Enter a material name.'); return; }
+  await YS.insert('catalog_materials',{
+    category:document.getElementById('cat-category').value,
+    name, finish:document.getElementById('cat-finish').value.trim(),
+    price_per_sqft:Number(document.getElementById('cat-price').value)||0
+  });
+  document.getElementById('cat-name').value=''; document.getElementById('cat-finish').value=''; document.getElementById('cat-price').value='';
+  renderCatalog();
+}
+async function deleteCatalog(id){ if(confirm('Remove this material?')){ await YS.remove('catalog_materials', id); renderCatalog(); } }
+
+function renderTeams(){
+  document.getElementById('teams-tbody').innerHTML = YS.all('team_profiles').map(t=>`
+    <tr><td><b>${t.name}</b><br><span style="color:var(--mut);font-size:11px;">${t.email}</span></td>
+    <td style="text-transform:capitalize;">${t.role.replace('_',' ')}</td><td>${t.city||'—'}</td><td>${t.phone||'—'}</td>
+    <td><span class="pill ${t.active?'p-ok':'p-no'}">${t.active?'Active':'Inactive'}</span></td>
+    <td><button class="btn btn-xs" onclick="event.stopPropagation();toggleTeam('${t.id}')">Toggle</button></td></tr>
+  `).join('');
+}
+async function addTeamMember(){
+  const name=document.getElementById('tm-name').value.trim();
+  const email=document.getElementById('tm-email').value.trim();
+  if(!name||!email){ alert('Name and email are required.'); return; }
+  try{
+    await YS.createTeamMember({
+      name, email,
+      role:document.getElementById('tm-role').value,
+      city:document.getElementById('tm-city').value.trim(),
+      phone:document.getElementById('tm-phone').value.trim()
+    });
+    ['tm-name','tm-email','tm-phone','tm-city'].forEach(id=>document.getElementById(id).value='');
+    await YS.refresh('team_profiles');
+    renderAll();
+  }catch(e){ alert('Could not add team member: '+e.message); }
+}
+async function toggleTeam(id){
+  try{ await YS.toggleTeamMember(id); await YS.refresh('team_profiles'); renderTeams(); }
+  catch(e){ alert('Could not update: '+e.message); }
+}
+
+function renderSettings(){
+  const s = YS.all('payment_settings')[0];
+  if(s){ document.getElementById('set-upi').value=s.upi_id||''; document.getElementById('set-bank').value=s.bank_details||''; }
+}
+async function saveSettings(){
+  const s = YS.all('payment_settings')[0];
+  const patch = {upi_id:document.getElementById('set-upi').value.trim(), bank_details:document.getElementById('set-bank').value.trim()};
+  if(s) await YS.update('payment_settings', s.id, patch); else await YS.insert('payment_settings', patch);
+  alert('✓ Payment settings saved.');
+}
+</script>
+</body>
+</html>

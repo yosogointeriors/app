@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YOSOGO — CRM &amp; Design Team</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --ink:#1a3a52;--blue:#2c5c82;--blue-lt:#4d84ad;
+  --bg:#F3F6F8;--surf:#fff;--surf2:#EAF0F4;--surf3:#DCE6EC;
+  --bdr:rgba(26,58,82,0.11);--bdr2:rgba(26,58,82,0.18);
+  --txt:#16222c;--mut:#5C7080;--hnt:#93A5B3;
+  --ok-bg:#E4F3E2;--ok-tx:#2C6B27;--no-bg:#FBE9E7;--no-tx:#A3352B;
+  --inf-bg:#E5EEF6;--inf-tx:#2A5490;--wrn-bg:#FBF1DD;--wrn-tx:#8A5B0B;
+  --rad:8px;--rad-lg:12px;--rad-xl:16px;--sidebar-w:220px;
+}
+html,body{height:100%;background:var(--bg);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--txt);min-height:100vh;}
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ink);padding:20px;}
+.login-box{background:var(--surf);border-radius:var(--rad-xl);padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.login-logo{font-weight:900;font-size:20px;letter-spacing:1px;}
+.login-logo span{color:var(--blue);}
+.login-sub{font-size:12.5px;color:var(--mut);margin-bottom:24px;}
+.login-hint{font-size:11.5px;color:var(--hnt);margin-top:14px;text-align:center;}
+
+.app-wrap{display:none;min-height:100vh;}
+.app-wrap.show{display:flex;}
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--ink);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:20;}
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.sidebar-logo b{color:#fff;font-size:16px;}
+.sidebar-logo b span{color:var(--blue-lt);}
+.sidebar-logo-sub{font-size:10.5px;color:rgba(255,255,255,0.5);margin-top:4px;}
+.nav{flex:1;padding:10px 0;overflow-y:auto;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13px;font-weight:500;color:rgba(255,255,255,0.62);cursor:pointer;border-left:3px solid transparent;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:#fff;}
+.nav-item.active{background:rgba(77,132,173,0.2);color:var(--blue-lt);border-left-color:var(--blue-lt);}
+.sidebar-footer{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1);}
+.sidebar-footer .who{font-size:12px;color:#fff;font-weight:600;}
+.sidebar-footer .role{font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;}
+
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.topbar{background:var(--surf);border-bottom:0.5px solid var(--bdr);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.topbar-title{font-size:15px;font-weight:700;}
+.content{padding:24px 28px;flex:1;}
+.tab{display:none;}
+.tab.active{display:block;}
+
+.btn{padding:9px 16px;font-size:13px;font-weight:600;border-radius:var(--rad);cursor:pointer;border:0.5px solid var(--bdr2);background:var(--surf2);color:var(--txt);font-family:inherit;}
+.btn:hover{background:var(--surf3);}
+.btn-p{background:var(--ink);color:#fff;border-color:var(--ink);}
+.btn-c{background:var(--blue);color:#fff;border-color:var(--blue);}
+.btn-c:hover{background:#234a67;}
+.btn-d{background:var(--no-bg);color:var(--no-tx);border-color:transparent;}
+.btn-sm{padding:5px 11px;font-size:12px;}
+.btn-xs{padding:4px 9px;font-size:11px;font-weight:600;}
+.btn-f{width:100%;display:block;}
+
+.pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap;}
+.p-ok{background:var(--ok-bg);color:var(--ok-tx);}
+.p-no{background:var(--no-bg);color:var(--no-tx);}
+.p-inf{background:var(--inf-bg);color:var(--inf-tx);}
+.p-wrn{background:var(--wrn-bg);color:var(--wrn-tx);}
+
+.fl{font-size:12px;font-weight:700;color:var(--mut);margin-bottom:5px;display:block;}
+input[type=text],input[type=tel],input[type=email],input[type=password],input[type=number],input[type=url],select,textarea{
+  width:100%;padding:8px 11px;font-size:13px;border:0.5px solid var(--bdr2);border-radius:var(--rad);background:var(--surf2);color:var(--txt);outline:none;font-family:inherit;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(44,92,130,0.12);}
+textarea{resize:vertical;min-height:70px;}
+.fr{margin-bottom:12px;}
+
+.page-title{font-size:22px;font-weight:700;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--mut);margin-bottom:22px;}
+
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.stat-card{background:var(--surf);border:0.5px solid var(--bdr);border-radius:var(--rad-lg);padding:16px 18px;}
+.stat-num{font-size:24px;font-weight:700;}
+.stat-lbl{font-size:11.5px;color:var(--mut);}
+
+.card{background:var(--surf);border:0.5px solid var(--bdr);border-radius:var(--rad-lg);padding:18px 20px;margin-bottom:16px;}
+.card-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.card-sub{font-size:12px;color:var(--mut);margin-bottom:14px;}
+
+table{width:100%;border-collapse:collapse;}
+th{font-size:10.5px;font-weight:700;color:var(--hnt);text-transform:uppercase;letter-spacing:.06em;padding:9px 12px;text-align:left;border-bottom:0.5px solid var(--bdr2);background:var(--surf2);}
+td{font-size:12.5px;padding:10px 12px;border-bottom:0.5px solid var(--bdr);}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--surf2);cursor:pointer;}
+
+.filter-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.filter-row select,.filter-row input{width:auto;min-width:130px;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(22,34,44,0.5);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:40px 16px;overflow-y:auto;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--surf);border-radius:var(--rad-xl);width:100%;max-width:640px;padding:0;}
+.modal-box.wide{max-width:820px;}
+.modal-head{padding:18px 22px;border-bottom:0.5px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;background:var(--surf2);}
+.modal-head h3{font-size:16px;font-weight:700;}
+.modal-close{cursor:pointer;font-size:20px;color:var(--mut);background:none;border:none;}
+.modal-body{padding:20px 22px;max-height:70vh;overflow-y:auto;}
+.modal-foot{padding:14px 22px;border-top:0.5px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end;background:var(--surf2);}
+
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.note-item{padding:9px 0;border-bottom:0.5px solid var(--bdr);font-size:12.5px;}
+.note-item:last-child{border-bottom:none;}
+.note-meta{font-size:10.5px;color:var(--hnt);margin-top:2px;}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px;}
+.gallery img{width:100%;height:90px;object-fit:cover;border-radius:8px;border:0.5px solid var(--bdr);}
+
+.qitem-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center;}
+.qtotal{font-size:20px;font-weight:800;text-align:right;margin-top:10px;}
+
+@media(max-width:900px){.stat-grid{grid-template-columns:repeat(2,1fr);}.form-2col{grid-template-columns:1fr;}.qitem-row{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">YOSO<span>GO</span></div>
+    <div class="login-sub">CRM &amp; Design Team</div>
+    <div class="fr"><label class="fl">Email</label><input type="email" id="li-email" value="arjun@yosogo.in"/></div>
+    <div class="fr"><label class="fl">Password</label><input type="password" id="li-pass" value="team123"/></div>
+    <button class="btn btn-p btn-f" onclick="doLogin()" disabled>Loading…</button>
+    <div id="li-err" style="color:var(--no-tx);font-size:12px;margin-top:10px;display:none;"></div>
+    <div class="login-hint">Try: arjun@yosogo.in / sneha@yosogo.in / divya@yosogo.in — password team123</div>
+  </div>
+</div>
+
+<div class="app-wrap" id="app-wrap">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><b>YOSO<span>GO</span></b><div class="sidebar-logo-sub">CRM &amp; Design Team</div></div>
+    <nav class="nav" id="nav">
+      <div class="nav-item active" data-tab="pipeline" onclick="showTab('pipeline')">📋 My Pipeline</div>
+      <div class="nav-item" data-tab="projects" onclick="showTab('projects')">🏗 My Projects</div>
+      <div class="nav-item" data-tab="performance" onclick="showTab('performance')">📈 Performance</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="who" id="who-name">—</div>
+      <div class="role" id="who-role">—</div>
+      <button class="btn btn-sm btn-f" onclick="logout()">Log Out</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar"><div class="topbar-title" id="topbar-title">My Pipeline</div><a href="index.html" class="btn btn-sm">← Portal Hub</a></div>
+    <div class="content">
+
+      <div class="tab active" id="tab-pipeline">
+        <div class="page-title" id="pipe-title">My Pipeline</div>
+        <div class="page-sub">Leads assigned to you — move each from first contact through to booking.</div>
+        <div class="stat-grid" id="pipe-stats"></div>
+        <div class="filter-row">
+          <select id="f-status" onchange="renderPipeline()">
+            <option value="">All statuses</option>
+            <option value="new">New</option><option value="contacted">Contacted</option>
+            <option value="site_visit_scheduled">Site Visit Scheduled</option><option value="site_visit_done">Site Visit Done</option>
+            <option value="design_presented">Design Presented</option><option value="quotation_sent">Quotation Sent</option>
+            <option value="negotiation">Negotiation</option><option value="booked">Booked</option><option value="lost">Lost</option>
+          </select>
+        </div>
+        <div class="card" style="padding:0;overflow-x:auto;">
+          <table><thead><tr><th>Lead</th><th>Project</th><th>Source</th><th>Status</th><th>Last Update</th></tr></thead><tbody id="pipe-tbody"></tbody></table>
+        </div>
+      </div>
+
+      <div class="tab" id="tab-projects">
+        <div class="page-title">My Projects</div>
+        <div class="page-sub">Booked leads you've designed for — track their build from here too.</div>
+        <div id="myprojects-list"></div>
+      </div>
+
+      <div class="tab" id="tab-performance">
+        <div class="page-title">Performance</div>
+        <div class="page-sub">Your personal conversion snapshot.</div>
+        <div class="stat-grid" id="perf-stats"></div>
+        <div class="card"><div class="card-title">Funnel</div><div id="perf-funnel"></div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- LEAD MODAL -->
+<div class="modal-overlay" id="lead-modal">
+  <div class="modal-box wide">
+    <div class="modal-head"><h3 id="lm-title">Lead</h3><button class="modal-close" onclick="closeModal('lead-modal')">×</button></div>
+    <div class="modal-body" id="lm-body"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('lead-modal')">Close</button></div>
+  </div>
+</div>
+
+<!-- QUOTATION MODAL -->
+<div class="modal-overlay" id="quote-modal">
+  <div class="modal-box wide">
+    <div class="modal-head"><h3>Build Quotation</h3><button class="modal-close" onclick="closeModal('quote-modal')">×</button></div>
+    <div class="modal-body">
+      <div id="qitems"></div>
+      <button class="btn btn-sm" onclick="addQItemRow()">+ Add Line Item</button>
+      <div class="qtotal">Total: ₹<span id="qtotal-val">0</span></div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('quote-modal')">Cancel</button><button class="btn btn-c" onclick="saveQuotation()">Send Quotation to Lead</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="yosogo-data.js"></script>
+<script>
+let session = null;
+let CURRENT_LEAD_ID = null;
+
+YS.init().then(()=>{
+  const btn = document.querySelector('#login-screen .btn-p');
+  if(btn){ btn.disabled=false; btn.textContent='Sign In →'; }
+});
+YS.onChange(()=>{ if(session) renderAll(); });
+
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  const errEl = document.getElementById('li-err');
+  errEl.style.display='none';
+  try{
+    const { account: acc } = await YS.login('team', email, pass);
+    session = acc;
+    await YS.ready();
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-wrap').classList.add('show');
+    document.getElementById('who-name').textContent = acc.name;
+    document.getElementById('who-role').textContent = acc.role.replace('_',' ') + ' · ' + (acc.city||'');
+    document.getElementById('pipe-title').textContent = acc.role==='sales_head' ? "Team Pipeline" : "My Pipeline";
+    renderAll();
+  }catch(e){
+    errEl.style.display='block'; errEl.textContent = e.message || 'Invalid login or inactive account.';
+  }
+}
+function logout(){ session=null; document.getElementById('app-wrap').classList.remove('show'); document.getElementById('login-screen').style.display='flex'; }
+function showTab(tab){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));
+  document.getElementById('topbar-title').textContent = {pipeline:'My Pipeline',projects:'My Projects',performance:'Performance'}[tab];
+  renderAll();
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+const STATUS_LABEL = {new:'New',contacted:'Contacted',site_visit_scheduled:'Site Visit Scheduled',site_visit_done:'Site Visit Done',design_presented:'Design Presented',quotation_sent:'Quotation Sent',negotiation:'Negotiation',booked:'Booked',lost:'Lost'};
+const STATUS_PILL = {new:'p-inf',contacted:'p-inf',site_visit_scheduled:'p-wrn',site_visit_done:'p-wrn',design_presented:'p-wrn',quotation_sent:'p-wrn',negotiation:'p-wrn',booked:'p-ok',lost:'p-no'};
+const STATUS_ORDER = ['new','contacted','site_visit_scheduled','site_visit_done','design_presented','quotation_sent','negotiation','booked'];
+
+function myLeads(){
+  const all = YS.all('leads');
+  if(session.role==='sales_head'){
+    const cityList = (session.city||'').split(',').map(s=>s.trim());
+    return all.filter(l=>cityList.includes(l.city));
+  }
+  return all.filter(l=>l.assigned_to===session.id);
+}
+
+function renderAll(){ renderPipeline(); renderProjects(); renderPerformance(); }
+
+function renderPipeline(){
+  const fStatus = document.getElementById('f-status')?.value||'';
+  let leads = myLeads().sort((a,b)=>new Date(b.updated_at||b.created_at)-new Date(a.updated_at||a.created_at));
+  const total = leads.length, booked = leads.filter(l=>l.status==='booked').length, lost = leads.filter(l=>l.status==='lost').length;
+  const open = leads.filter(l=>!['booked','lost'].includes(l.status)).length;
+  document.getElementById('pipe-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-lbl">Total Leads</div></div>
+    <div class="stat-card"><div class="stat-num">${open}</div><div class="stat-lbl">In Progress</div></div>
+    <div class="stat-card"><div class="stat-num">${booked}</div><div class="stat-lbl">Booked</div></div>
+    <div class="stat-card"><div class="stat-num">${total?Math.round(booked/total*100):0}%</div><div class="stat-lbl">Conversion</div></div>
+  `;
+  if(fStatus) leads = leads.filter(l=>l.status===fStatus);
+  document.getElementById('pipe-tbody').innerHTML = leads.map(l=>`
+    <tr onclick="openLeadDetail('${l.id}')">
+      <td><b>${l.name}</b><br><span style="color:var(--mut);font-size:11.5px;">${l.phone}</span></td>
+      <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
+      <td>${l.source==='facebook_ad'?'📘 FB Ad':l.source}</td>
+      <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span></td>
+      <td style="color:var(--mut);font-size:11.5px;">${new Date(l.updated_at||l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:30px;">No leads assigned to you yet.</td></tr>`;
+}
+
+function openLeadDetail(id){
+  CURRENT_LEAD_ID = id;
+  const l = YS.find('leads', id);
+  const notes = YS.all('lead_notes').filter(n=>n.lead_id===id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const designs = YS.all('design_files').filter(d=>{
+    const p = YS.all('projects').find(pr=>pr.lead_id===id);
+    return p && d.project_id===p.id;
+  });
+  const nextIdx = STATUS_ORDER.indexOf(l.status);
+  const nextStatus = STATUS_ORDER[nextIdx+1];
+
+  document.getElementById('lm-title').textContent = l.name + ' — ' + (l.city||'');
+  document.getElementById('lm-body').innerHTML = `
+    <div class="form-2col" style="margin-bottom:16px;">
+      <div><span class="fl">Phone</span>${l.phone}</div>
+      <div><span class="fl">Email</span>${l.email||'—'}</div>
+      <div><span class="fl">Project</span>${(l.project_type||'').replace('_',' + ')} ${l.bhk?'· '+l.bhk:''}</div>
+      <div><span class="fl">Budget</span>${l.budget_range?'₹'+l.budget_range:'—'}</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      ${nextStatus ? `<button class="btn btn-c btn-sm" onclick="advanceStatus('${id}','${nextStatus}')">Move to "${STATUS_LABEL[nextStatus]}" →</button>` : ''}
+      ${l.status!=='quotation_sent' && l.status!=='booked' ? `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Build Quotation</button>` : `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Revise Quotation</button>`}
+      <button class="btn btn-sm" onclick="uploadDesign('${id}')">🎨 Upload Design Render</button>
+      <button class="btn btn-d btn-sm" onclick="markLost('${id}')">Mark Lost</button>
+    </div>
+    <div class="card-title" style="font-size:13px;margin-bottom:8px;">Design Renders</div>
+    <div class="gallery">${designs.map(d=>`<div><img src="${d.file_url}"/><div style="font-size:10.5px;margin-top:3px;">${d.room_name}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
+    <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Notes &amp; Site Visit Log</div>
+    <div class="fr" style="display:flex;gap:8px;"><input type="text" id="lm-note-text" placeholder="e.g. Site visit done — 3 rooms measured, kitchen 9x7ft…" style="flex:1;"/><button class="btn btn-p btn-sm" onclick="addLeadNote('${id}')">Add</button></div>
+    <div>${notes.map(n=>`<div class="note-item">${n.note}<div class="note-meta">${new Date(n.created_at).toLocaleString('en-IN')}</div></div>`).join('') || '<div style="color:var(--mut);font-size:12.5px;">No notes yet.</div>'}</div>
+  `;
+  document.getElementById('lead-modal').classList.add('open');
+}
+
+async function advanceStatus(id, status){
+  await YS.update('leads', id, {status});
+  if(status==='booked'){
+    if(!YS.all('projects').find(p=>p.lead_id===id)){
+      const l = YS.find('leads', id);
+      await YS.createProjectFromLead(l, {designer_id: session.role==='designer'?session.id:l.assigned_to});
+      alert('🎉 Lead booked! A live project has been created and the customer can now log into their portal via OTP.');
+    }
+  }
+  renderAll(); openLeadDetail(id);
+}
+async function markLost(id){
+  const reason = prompt('Reason for losing this lead?');
+  if(reason===null) return;
+  await YS.update('leads', id, {status:'lost', lost_reason:reason});
+  renderAll(); closeModal('lead-modal');
+}
+async function addLeadNote(id){
+  const txt = document.getElementById('lm-note-text').value.trim();
+  if(!txt) return;
+  await YS.insert('lead_notes',{lead_id:id, note:txt, added_by_type:'team', added_by_id:session.id});
+  openLeadDetail(id);
+}
+async function uploadDesign(id){
+  let proj = YS.all('projects').find(p=>p.lead_id===id);
+  if(!proj){ alert('This lead isn\'t booked yet — design renders for pre-booking presentations can still be attached; we\'ll create a temporary project record.'); proj = await YS.createProjectFromLead(YS.find('leads',id)); }
+  const room = prompt('Room name? (e.g. Kitchen, Master Wardrobe)');
+  if(!room) return;
+  const url = prompt('Paste the design render image URL (in production this would be a file upload):', 'https://picsum.photos/seed/'+Math.random().toString(36).slice(2,8)+'/600/420');
+  if(!url) return;
+  await YS.insert('design_files',{project_id:proj.id, room_name:room, file_url:url, version:1, customer_approved:false});
+  if(YS.find('leads',id).status==='site_visit_done' || YS.find('leads',id).status==='contacted') await YS.update('leads', id, {status:'design_presented'});
+  renderAll(); openLeadDetail(id);
+}
+
+let QITEMS = [];
+function openQuoteBuilder(id){
+  CURRENT_LEAD_ID = id;
+  const proj = YS.all('projects').find(p=>p.lead_id===id);
+  const existing = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id).sort((a,b)=>b.version-a.version)[0] : null;
+  QITEMS = existing ? JSON.parse(JSON.stringify(existing.items)) : [
+    {item:'Modular Kitchen', category:'kitchen', qty:1, rate:0},
+    {item:'Wardrobe', category:'wardrobe', qty:1, rate:0}
+  ];
+  renderQItems();
+  document.getElementById('quote-modal').classList.add('open');
+}
+function renderQItems(){
+  document.getElementById('qitems').innerHTML = QITEMS.map((it,i)=>`
+    <div class="qitem-row">
+      <input type="text" value="${it.item}" oninput="QITEMS[${i}].item=this.value"/>
+      <input type="text" placeholder="category" value="${it.category||''}" oninput="QITEMS[${i}].category=this.value"/>
+      <input type="number" value="${it.qty}" oninput="QITEMS[${i}].qty=Number(this.value);calcQTotal();" placeholder="Qty"/>
+      <input type="number" value="${it.rate}" oninput="QITEMS[${i}].rate=Number(this.value);calcQTotal();" placeholder="Rate ₹"/>
+      <button class="btn btn-d btn-xs" onclick="QITEMS.splice(${i},1);renderQItems();calcQTotal();">✕</button>
+    </div>`).join('');
+  calcQTotal();
+}
+function addQItemRow(){ QITEMS.push({item:'',category:'',qty:1,rate:0}); renderQItems(); }
+function calcQTotal(){
+  const total = QITEMS.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.rate)||0),0);
+  document.getElementById('qtotal-val').textContent = total.toLocaleString('en-IN');
+}
+async function saveQuotation(){
+  const id = CURRENT_LEAD_ID;
+  let proj = YS.all('projects').find(p=>p.lead_id===id);
+  if(!proj) proj = await YS.createProjectFromLead(YS.find('leads',id));
+  const total = QITEMS.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.rate)||0),0);
+  const existing = YS.all('quotations').filter(q=>q.project_id===proj.id);
+  const items = QITEMS.map(it=>({...it, amount:(Number(it.qty)||0)*(Number(it.rate)||0)}));
+  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, total_amount:total, status:'sent'});
+  await YS.update('projects', proj.id, {total_value: total});
+  await YS.update('leads', id, {status:'quotation_sent'});
+  closeModal('quote-modal'); renderAll();
+  alert('✓ Quotation of ₹'+total.toLocaleString('en-IN')+' sent to lead.');
+}
+
+function renderProjects(){
+  const leadIds = myLeads().map(l=>l.id);
+  const projects = YS.all('projects').filter(p=>leadIds.includes(p.lead_id) || p.designer_id===session.id);
+  const stages = YS.all('project_stages');
+  document.getElementById('myprojects-list').innerHTML = projects.map(p=>{
+    const st = stages.filter(s=>s.project_id===p.id).sort((a,b)=>a.stage_order-b.stage_order);
+    const current = st.find(s=>s.status==='in_progress');
+    return `<div class="card">
+      <div class="card-title">${p.project_name}</div>
+      <div class="card-sub">${p.city} · ₹${(p.total_value/100000).toFixed(1)}L · Current stage: ${current?current.stage_name:(st.every(s=>s.status==='completed')?'Completed':'Not started')}</div>
+    </div>`;
+  }).join('') || `<div class="card" style="text-align:center;color:var(--mut);">No live projects yet.</div>`;
+}
+
+function renderPerformance(){
+  const leads = myLeads();
+  const total = leads.length;
+  const byStatus = {}; leads.forEach(l=>byStatus[l.status]=(byStatus[l.status]||0)+1);
+  const booked = byStatus.booked||0, lost = byStatus.lost||0;
+  document.getElementById('perf-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-lbl">Leads Handled</div></div>
+    <div class="stat-card"><div class="stat-num">${booked}</div><div class="stat-lbl">Booked</div></div>
+    <div class="stat-card"><div class="stat-num">${lost}</div><div class="stat-lbl">Lost</div></div>
+    <div class="stat-card"><div class="stat-num">${total?Math.round(booked/total*100):0}%</div><div class="stat-lbl">Win Rate</div></div>
+  `;
+  document.getElementById('perf-funnel').innerHTML = STATUS_ORDER.map(s=>{
+    const n = leads.filter(l=>l.status===s || STATUS_ORDER.indexOf(l.status) > STATUS_ORDER.indexOf(s)).length;
+    const pct = total? Math.round(n/total*100):0;
+    return `<div style="margin-bottom:9px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>${STATUS_LABEL[s]}</span><span style="color:var(--mut);">${n}</span></div>
+    <div style="background:var(--surf3);border-radius:6px;height:7px;"><div style="width:${pct}%;height:100%;background:var(--blue);border-radius:6px;"></div></div></div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

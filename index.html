@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YOSOGO — Portal Suite</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --ink:#241A12;--copper:#B5762F;--copper-lt:#D99B4E;
+  --bg:#F7F3EC;--surf:#fff;--bdr:rgba(36,26,18,0.10);
+}
+html,body{min-height:100%;background:var(--bg);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--ink);display:flex;flex-direction:column;min-height:100vh;}
+
+.navbar{background:var(--ink);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;}
+.nav-tagline{font-size:12px;color:rgba(255,255,255,0.55);letter-spacing:0.06em;text-transform:uppercase;}
+
+.hero{background:var(--ink);padding:64px 32px 84px;text-align:center;position:relative;overflow:hidden;}
+.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:var(--bg);border-radius:40px 40px 0 0;}
+.hero-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--copper-lt);margin-bottom:14px;}
+.hero-title{font-size:38px;font-weight:900;color:#fff;line-height:1.15;margin-bottom:12px;}
+.hero-title span{color:var(--copper-lt);}
+.hero-sub{font-size:15px;color:rgba(255,255,255,0.62);max-width:520px;margin:0 auto;line-height:1.7;}
+
+.portal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;max-width:1360px;margin:0 auto;padding:48px 32px;}
+
+.portal-card{background:var(--surf);border-radius:20px;border:0.5px solid var(--bdr);overflow:hidden;box-shadow:0 4px 24px rgba(36,26,18,0.07);transition:transform .2s,box-shadow .2s;text-decoration:none;display:flex;flex-direction:column;color:inherit;}
+.portal-card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(36,26,18,0.14);}
+
+.pc-header{padding:28px 26px 22px;position:relative;}
+.pc-icon{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:25px;margin-bottom:16px;background:rgba(255,255,255,0.16);}
+.pc-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;background:rgba(255,255,255,0.18);color:#fff;}
+.pc-title{font-size:21px;font-weight:800;color:#fff;margin-bottom:5px;}
+.pc-sub{font-size:12.5px;color:rgba(255,255,255,0.68);line-height:1.6;}
+
+.pc-body{padding:20px 26px;flex:1;display:flex;flex-direction:column;}
+.pc-features{list-style:none;margin-bottom:20px;flex:1;}
+.pc-features li{font-size:12.5px;color:#4a3f34;padding:6px 0;border-bottom:0.5px solid rgba(36,26,18,0.06);display:flex;align-items:flex-start;gap:8px;line-height:1.4;}
+.pc-features li:last-child{border-bottom:none;}
+.pc-features li::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;background:var(--dot,#B5762F);}
+
+.pc-btn{display:block;width:100%;padding:12px;border-radius:10px;font-size:13.5px;font-weight:700;text-align:center;text-decoration:none;cursor:pointer;border:none;font-family:inherit;color:#fff;transition:opacity .15s;}
+.pc-btn:hover{opacity:0.88;}
+
+.divider{width:100%;max-width:1200px;margin:0 auto 0;padding:0 32px;}
+.divider-line{height:0.5px;background:var(--bdr);}
+
+.info-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;max-width:1200px;margin:0 auto;padding:32px 32px 48px;}
+.is-item{text-align:center;padding:20px;}
+.is-num{font-size:27px;font-weight:800;color:var(--copper);margin-bottom:4px;}
+.is-lbl{font-size:11.5px;color:#7a7168;font-weight:500;}
+
+footer{background:var(--ink);padding:20px 32px;text-align:center;margin-top:auto;}
+footer p{font-size:12px;color:rgba(255,255,255,0.45);}
+
+@media(max-width:1200px){.portal-grid{grid-template-columns:repeat(2,1fr);}.info-strip{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:640px){
+  .portal-grid{grid-template-columns:1fr;padding:28px 18px;}
+  .hero{padding:44px 18px 64px;}.hero-title{font-size:26px;}
+  .navbar{padding:14px 18px;}
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <svg width="150" height="32" viewBox="0 0 150 32" xmlns="http://www.w3.org/2000/svg">
+    <rect width="150" height="32" rx="6" fill="#241A12"/>
+    <text x="75" y="21" font-family="Arial Black,Arial" font-weight="900" font-size="15" fill="#D99B4E" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">YOSOGO</text>
+  </svg>
+  <span class="nav-tagline">Portal Suite</span>
+</nav>
+
+<section class="hero">
+  <div class="hero-eyebrow">YOSOGO Interiors</div>
+  <h1 class="hero-title">From First Click<br/><span>To Final Handover</span></h1>
+  <p class="hero-sub">Facebook lead capture, sales &amp; design CRM, site production tracking, and a live customer portal — all connected on one Supabase backend.</p>
+</section>
+
+<div class="portal-grid">
+
+  <a href="admin.html" class="portal-card">
+    <div class="pc-header" style="background:linear-gradient(135deg,#241A12 0%,#4A3524 100%);">
+      <div class="pc-badge">🔐 HQ Access</div>
+      <div class="pc-icon">⚙️</div>
+      <div class="pc-title">Admin / HQ Portal</div>
+      <div class="pc-sub">Full control over lead sources, catalog, teams, and every project's health.</div>
+    </div>
+    <div class="pc-body">
+      <ul class="pc-features" style="--dot:#241A12">
+        <li>Facebook Lead Ads sync — live inbox of new leads</li>
+        <li>Assign leads to Sales/Design executives by city</li>
+        <li>Material &amp; finish catalog — carcass, shutter, hardware</li>
+        <li>Every project's stage, value &amp; payment status at a glance</li>
+        <li>Team accounts — Sales Head, Designer, Site Manager</li>
+        <li>Revenue &amp; conversion dashboards, lost-lead reasons</li>
+      </ul>
+      <div class="pc-btn" style="background:#241A12;">Open Admin Portal →</div>
+    </div>
+  </a>
+
+  <a href="crm_team.html" class="portal-card">
+    <div class="pc-header" style="background:linear-gradient(135deg,#1a3a52 0%,#2c5c82 100%);">
+      <div class="pc-badge">📐 Sales &amp; Design</div>
+      <div class="pc-icon">📋</div>
+      <div class="pc-title">CRM &amp; Design Team</div>
+      <div class="pc-sub">Own your leads end-to-end — measurement, design, quote, booking.</div>
+    </div>
+    <div class="pc-body">
+      <ul class="pc-features" style="--dot:#2c5c82">
+        <li>City-scoped lead pipeline — new to booked or lost</li>
+        <li>Log site-visit measurements &amp; room-wise notes</li>
+        <li>Upload 3D design renders for customer approval</li>
+        <li>Build itemised quotations, track revisions</li>
+        <li>Convert booked lead into a live project automatically</li>
+        <li>Personal performance — leads handled, conversion %</li>
+      </ul>
+      <div class="pc-btn" style="background:#1a3a52;">Open CRM Portal →</div>
+    </div>
+  </a>
+
+  <a href="site_production.html" class="portal-card">
+    <div class="pc-header" style="background:linear-gradient(135deg,#5c3a1a 0%,#8a5a26 100%);">
+      <div class="pc-badge">🏗 Production</div>
+      <div class="pc-icon">🔨</div>
+      <div class="pc-title">Site &amp; Production</div>
+      <div class="pc-sub">Move projects through factory and site stages, photo by photo.</div>
+    </div>
+    <div class="pc-body">
+      <ul class="pc-features" style="--dot:#8a5a26">
+        <li>9-stage project tracker — measurement to handover</li>
+        <li>Mark each stage in-progress / complete with a date</li>
+        <li>Upload site &amp; factory photos per stage</li>
+        <li>Photos instantly visible on the customer's portal</li>
+        <li>Flag delays &amp; material shortages to HQ</li>
+        <li>Assigned by city / site manager</li>
+      </ul>
+      <div class="pc-btn" style="background:#5c3a1a;">Open Production Portal →</div>
+    </div>
+  </a>
+
+  <a href="customer.html" class="portal-card">
+    <div class="pc-header" style="background:linear-gradient(135deg,#6b2a3a 0%,#a8425a 100%);">
+      <div class="pc-badge">👤 Customer Access</div>
+      <div class="pc-icon">🏠</div>
+      <div class="pc-title">Customer Portal</div>
+      <div class="pc-sub">Your project, transparently — designs, payments, and progress photos.</div>
+    </div>
+    <div class="pc-body">
+      <ul class="pc-features" style="--dot:#a8425a">
+        <li>OTP login with phone number — no password to remember</li>
+        <li>View &amp; approve design renders room by room</li>
+        <li>Full payment history &amp; upcoming milestone dues</li>
+        <li>Live project timeline across all 9 stages</li>
+        <li>Photo gallery — see your kitchen/wardrobe at every stage</li>
+        <li>Raise a query directly to your design team</li>
+      </ul>
+      <div class="pc-btn" style="background:#6b2a3a;">Open Customer Portal →</div>
+    </div>
+  </a>
+
+</div>
+
+<div class="divider"><div class="divider-line"></div></div>
+
+<div class="info-strip">
+  <div class="is-item"><div class="is-num">4</div><div class="is-lbl">Connected Portals</div></div>
+  <div class="is-item"><div class="is-num">9</div><div class="is-lbl">Project Stages Tracked</div></div>
+  <div class="is-item"><div class="is-num">13</div><div class="is-lbl">Supabase Tables</div></div>
+  <div class="is-item"><div class="is-num">1</div><div class="is-lbl">Source of Truth</div></div>
+</div>
+
+<footer>
+  <p>© 2026 YOSOGO Interiors Pvt Ltd. All rights reserved. · Admin · CRM &amp; Design · Site &amp; Production · Customer Portal</p>
+</footer>
+
+</body>
+</html>

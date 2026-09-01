@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YOSOGO — My Project</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --ink:#6b2a3a;--rose:#a8425a;--rose-lt:#C97389;
+  --bg:#FBF3F4;--surf:#fff;--surf2:#F5E9EB;--surf3:#EAD5D9;
+  --bdr:rgba(107,42,58,0.12);--bdr2:rgba(107,42,58,0.19);
+  --txt:#2E141A;--mut:#7A5560;--hnt:#B08A92;
+  --ok-bg:#E7F3E1;--ok-tx:#2C6B27;--no-bg:#FBE9E7;--no-tx:#A3352B;
+  --inf-bg:#EAF0F6;--inf-tx:#2A5490;--wrn-bg:#FBF1DD;--wrn-tx:#8A5B0B;
+  --rad:8px;--rad-lg:12px;--rad-xl:16px;
+}
+html,body{height:100%;background:var(--bg);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--txt);min-height:100vh;}
+
+/* LOGIN */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ink);padding:20px;}
+.login-box{background:var(--surf);border-radius:var(--rad-xl);padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.login-logo{font-weight:900;font-size:20px;letter-spacing:1px;}
+.login-logo span{color:var(--rose);}
+.login-sub{font-size:12.5px;color:var(--mut);margin-bottom:24px;}
+.login-hint{font-size:11.5px;color:var(--hnt);margin-top:14px;text-align:center;}
+.step{display:none;}
+.step.active{display:block;}
+
+/* SHELL — mobile-first */
+.app-wrap{display:none;min-height:100vh;flex-direction:column;max-width:520px;margin:0 auto;background:var(--surf);}
+.app-wrap.show{display:flex;}
+.topbar{background:var(--ink);color:#fff;padding:16px 20px 20px;}
+.topbar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.topbar-logo{font-weight:800;font-size:15px;letter-spacing:0.5px;}
+.topbar-logo span{color:var(--rose-lt);}
+.topbar-logout{font-size:11.5px;color:rgba(255,255,255,0.6);cursor:pointer;background:none;border:none;font-family:inherit;}
+.topbar-name{font-size:19px;font-weight:800;}
+.topbar-sub{font-size:12px;color:rgba(255,255,255,0.65);margin-top:3px;}
+
+.tabs{display:flex;background:var(--surf);border-bottom:0.5px solid var(--bdr);position:sticky;top:0;z-index:10;overflow-x:auto;}
+.tab-btn{flex:1;padding:12px 6px;text-align:center;font-size:11.5px;font-weight:700;color:var(--mut);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;}
+.tab-btn.active{color:var(--rose);border-bottom-color:var(--rose);}
+
+.content{padding:18px 18px 40px;flex:1;}
+.tabpage{display:none;}
+.tabpage.active{display:block;}
+
+.card{background:var(--surf);border:0.5px solid var(--bdr);border-radius:var(--rad-lg);padding:16px 17px;margin-bottom:14px;}
+.card-title{font-size:14.5px;font-weight:700;margin-bottom:3px;}
+.card-sub{font-size:12px;color:var(--mut);margin-bottom:10px;}
+
+.btn{padding:10px 16px;font-size:13px;font-weight:700;border-radius:var(--rad);cursor:pointer;border:0.5px solid var(--bdr2);background:var(--surf2);color:var(--txt);font-family:inherit;}
+.btn-p{background:var(--ink);color:#fff;border-color:var(--ink);}
+.btn-c{background:var(--rose);color:#fff;border-color:var(--rose);}
+.btn-c:hover{background:#8f3549;}
+.btn-f{width:100%;display:block;text-align:center;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+
+.pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:10.5px;font-weight:700;}
+.p-ok{background:var(--ok-bg);color:var(--ok-tx);}
+.p-wrn{background:var(--wrn-bg);color:var(--wrn-tx);}
+.p-inf{background:var(--inf-bg);color:var(--inf-tx);}
+.p-no{background:var(--no-bg);color:var(--no-tx);}
+
+.fl{font-size:11.5px;font-weight:700;color:var(--mut);margin-bottom:5px;display:block;}
+input[type=text],input[type=tel],select,textarea{width:100%;padding:10px 12px;font-size:14px;border:0.5px solid var(--bdr2);border-radius:var(--rad);background:var(--surf2);color:var(--txt);outline:none;font-family:inherit;}
+input:focus,textarea:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(168,66,90,0.13);}
+.otp-input{letter-spacing:6px;text-align:center;font-size:20px;font-weight:700;}
+.fr{margin-bottom:12px;}
+
+/* Timeline */
+.tl{position:relative;padding-left:26px;}
+.tl-item{position:relative;padding-bottom:20px;}
+.tl-item:last-child{padding-bottom:0;}
+.tl-dot{position:absolute;left:-26px;top:2px;width:16px;height:16px;border-radius:50%;background:var(--surf3);border:2px solid var(--surf);}
+.tl-dot.done{background:#3B7C33;}
+.tl-dot.active{background:var(--rose);box-shadow:0 0 0 4px rgba(168,66,90,0.18);}
+.tl-line{position:absolute;left:-19px;top:18px;bottom:-2px;width:2px;background:var(--surf3);}
+.tl-item:last-child .tl-line{display:none;}
+.tl-name{font-size:13.5px;font-weight:700;}
+.tl-date{font-size:11px;color:var(--mut);margin-top:1px;}
+.tl-remark{font-size:11.5px;color:var(--no-tx);margin-top:3px;}
+
+.gallery{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:6px;}
+.gallery img{width:100%;height:110px;object-fit:cover;border-radius:10px;border:0.5px solid var(--bdr);}
+.gallery figcaption{font-size:10.5px;color:var(--mut);margin-top:3px;}
+
+.design-card img{width:100%;border-radius:10px;border:0.5px solid var(--bdr);margin-bottom:8px;}
+
+.pay-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:0.5px solid var(--bdr);}
+.pay-row:last-child{border-bottom:none;}
+
+.note-item{padding:9px 0;border-bottom:0.5px solid var(--bdr);font-size:12.5px;}
+.note-item:last-child{border-bottom:none;}
+.note-meta{font-size:10.5px;color:var(--hnt);margin-top:2px;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(46,20,26,0.5);display:none;align-items:flex-end;justify-content:center;z-index:100;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--surf);border-radius:18px 18px 0 0;width:100%;max-width:520px;padding:20px;max-height:82vh;overflow-y:auto;}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.modal-head h3{font-size:16px;font-weight:700;}
+.modal-close{cursor:pointer;font-size:20px;color:var(--mut);background:none;border:none;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">YOSO<span>GO</span></div>
+    <div class="login-sub">My Project Portal</div>
+
+    <div class="step active" id="step-phone">
+      <div class="fr"><label class="fl">Registered Mobile Number</label><input type="tel" id="li-phone" value="9840011223" placeholder="10-digit mobile"/></div>
+      <button class="btn btn-p btn-f" onclick="sendOtp()" disabled>Loading…</button>
+      <div id="phone-err" style="color:var(--no-tx);font-size:12px;margin-top:10px;display:none;"></div>
+      <div class="login-hint">Demo number pre-filled · 9840011223</div>
+    </div>
+
+    <div class="step" id="step-otp">
+      <div class="fr"><label class="fl">Enter OTP sent to your phone</label><input type="text" id="li-otp" class="otp-input" maxlength="4" value="1234"/></div>
+      <button class="btn btn-c btn-f" onclick="verifyOtp()">Verify &amp; Continue →</button>
+      <div id="otp-err" style="color:var(--no-tx);font-size:12px;margin-top:10px;display:none;"></div>
+      <div class="login-hint">Demo OTP is always 1234</div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app-wrap" id="app-wrap">
+  <div class="topbar">
+    <div class="topbar-top">
+      <div class="topbar-logo">YOSO<span>GO</span></div>
+      <button class="topbar-logout" onclick="logout()">Log Out</button>
+    </div>
+    <div class="topbar-name" id="cust-name">—</div>
+    <div class="topbar-sub" id="cust-proj">—</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab-btn active" data-tab="home" onclick="showTab('home')">🏠 Overview</div>
+    <div class="tab-btn" data-tab="designs" onclick="showTab('designs')">🎨 Designs</div>
+    <div class="tab-btn" data-tab="payments" onclick="showTab('payments')">💳 Payments</div>
+    <div class="tab-btn" data-tab="timeline" onclick="showTab('timeline')">📍 Timeline</div>
+    <div class="tab-btn" data-tab="photos" onclick="showTab('photos')">📷 Photos</div>
+  </div>
+
+  <div class="content">
+
+    <div class="tabpage active" id="tp-home">
+      <div class="card" style="background:linear-gradient(135deg,#6b2a3a,#a8425a);color:#fff;border:none;">
+        <div style="font-size:11px;opacity:0.75;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Current Stage</div>
+        <div id="home-stage" style="font-size:18px;font-weight:800;margin-bottom:6px;">—</div>
+        <div id="home-stage-sub" style="font-size:12px;opacity:0.85;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Project Summary</div>
+        <div id="home-summary"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Next Payment Due</div>
+        <div id="home-nextpay"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Have a question?</div>
+        <div class="card-sub">Message your design team directly.</div>
+        <textarea id="query-text" placeholder="Type your question here…"></textarea>
+        <button class="btn btn-c btn-f" style="margin-top:8px;" onclick="sendQuery()">Send to Design Team</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Your Messages</div>
+        <div id="home-notes"></div>
+      </div>
+    </div>
+
+    <div class="tabpage" id="tp-designs">
+      <div class="card-sub" style="margin-bottom:10px;">Approve each room's design so we can move to production.</div>
+      <div id="designs-list"></div>
+    </div>
+
+    <div class="tabpage" id="tp-payments">
+      <div class="card">
+        <div class="card-title">Milestones</div>
+        <div id="pay-milestones"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Payment History</div>
+        <div id="pay-history"></div>
+      </div>
+    </div>
+
+    <div class="tabpage" id="tp-timeline">
+      <div class="card">
+        <div class="card-title">Project Timeline</div>
+        <div class="tl" id="timeline-list"></div>
+      </div>
+    </div>
+
+    <div class="tabpage" id="tp-photos">
+      <div class="card">
+        <div class="card-title">Progress Photos</div>
+        <div class="card-sub">Uploaded by our site &amp; production team at every stage.</div>
+        <div class="gallery" id="photos-gallery"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- PAY MODAL -->
+<div class="modal-overlay" id="pay-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Pay Milestone</h3><button class="modal-close" onclick="closeModal('pay-modal')">×</button></div>
+    <div id="pay-modal-body"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="yosogo-data.js"></script>
+<script>
+let session = null; // customer_account
+let PROJECT = null;
+let PAY_MILESTONE_ID = null;
+
+YS.init().then(()=>{
+  const btn = document.querySelector('#step-phone .btn-p');
+  if(btn){ btn.disabled=false; btn.textContent='Send OTP →'; }
+});
+YS.onChange(()=>{ if(session && PROJECT) renderAll(); });
+
+async function sendOtp(){
+  const phone = document.getElementById('li-phone').value.replace(/\D/g,'');
+  const errEl = document.getElementById('phone-err');
+  errEl.style.display='none';
+  try{
+    const res = await YS.requestOtp(phone);
+    document.getElementById('step-phone').classList.remove('active');
+    document.getElementById('step-otp').classList.add('active');
+    window._pendingPhone = phone;
+    if(res.debug_otp){ document.getElementById('li-otp').value = res.debug_otp; } // DEMO_MODE convenience only
+  }catch(e){
+    errEl.style.display='block'; errEl.textContent = e.message || 'No project found for this number yet.';
+  }
+}
+async function verifyOtp(){
+  const otp = document.getElementById('li-otp').value.trim();
+  const errEl = document.getElementById('otp-err');
+  errEl.style.display='none';
+  try{
+    const { customer, project } = await YS.verifyOtp(window._pendingPhone, otp);
+    session = customer;
+    await YS.ready();
+    PROJECT = project || YS.find('projects', customer.project_id);
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-wrap').classList.add('show');
+    document.getElementById('cust-name').textContent = 'Hi, ' + (customer.name||'').split(' ')[0];
+    document.getElementById('cust-proj').textContent = PROJECT ? PROJECT.project_name : 'No active project';
+    renderAll();
+  }catch(e){
+    errEl.style.display='block'; errEl.textContent = e.message || 'Incorrect OTP.';
+  }
+}
+function logout(){
+  session=null; PROJECT=null;
+  document.getElementById('app-wrap').classList.remove('show');
+  document.getElementById('step-otp').classList.remove('active');
+  document.getElementById('step-phone').classList.add('active');
+  document.getElementById('login-screen').style.display='flex';
+}
+function showTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  document.querySelectorAll('.tabpage').forEach(p=>p.classList.toggle('active', p.id==='tp-'+tab));
+  renderAll();
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+const STAGE_ICONS = {'Site Measurement':'📐','Design Finalization':'🎨','Booking & Advance':'✍️','Material Procurement':'📦','Production (Factory)':'🏭','Quality Check':'✅','Delivery to Site':'🚚','Installation':'🔧','Final Handover':'🎉'};
+
+function renderAll(){
+  if(!PROJECT){
+    document.getElementById('home-summary').innerHTML = `<div style="color:var(--mut);font-size:13px;">Your project isn't live yet. Once your booking is confirmed, everything will appear here.</div>`;
+    return;
+  }
+  renderHome(); renderDesigns(); renderPayments(); renderTimeline(); renderPhotos();
+}
+
+function stagesOf(){ return YS.all('project_stages').filter(s=>s.project_id===PROJECT.id).sort((a,b)=>a.stage_order-b.stage_order); }
+
+function renderHome(){
+  const stages = stagesOf();
+  const current = stages.find(s=>s.status==='in_progress') || (stages.every(s=>s.status==='completed') ? stages[stages.length-1] : stages[0]);
+  document.getElementById('home-stage').textContent = (STAGE_ICONS[current.stage_name]||'') + ' ' + current.stage_name;
+  const doneCount = stages.filter(s=>s.status==='completed').length;
+  document.getElementById('home-stage-sub').textContent = `Stage ${current.stage_order} of ${stages.length} · ${doneCount} completed`;
+
+  const paid = YS.all('payments').filter(p=>p.project_id===PROJECT.id && p.verified).reduce((s,p)=>s+Number(p.amount||0),0);
+  document.getElementById('home-summary').innerHTML = `
+    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span style="color:var(--mut);">Project</span><b>${PROJECT.project_name}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span style="color:var(--mut);">Total Value</span><b>₹${Number(PROJECT.total_value).toLocaleString('en-IN')}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span style="color:var(--mut);">Paid So Far</span><b style="color:#2C6B27;">₹${paid.toLocaleString('en-IN')}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span style="color:var(--mut);">Target Handover</span><b>${PROJECT.target_handover_date||'TBD'}</b></div>
+  `;
+
+  const nextDue = YS.all('payment_milestones').filter(m=>m.project_id===PROJECT.id && m.status!=='paid').sort((a,b)=>new Date(a.due_date)-new Date(b.due_date))[0];
+  document.getElementById('home-nextpay').innerHTML = nextDue ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-weight:700;font-size:13.5px;">${nextDue.milestone_name}</div><div style="font-size:11.5px;color:var(--mut);">Due ${nextDue.due_date}</div></div>
+      <div style="text-align:right;"><div style="font-weight:800;font-size:15px;">₹${Number(nextDue.amount).toLocaleString('en-IN')}</div>
+      <button class="btn btn-c btn-sm" style="margin-top:4px;" onclick="showTab('payments')">Pay Now</button></div>
+    </div>` : `<div style="color:var(--mut);font-size:13px;">No pending payments 🎉</div>`;
+
+  const lead = YS.find('leads', PROJECT.lead_id);
+  const notes = lead ? YS.all('lead_notes').filter(n=>n.lead_id===lead.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,5) : [];
+  document.getElementById('home-notes').innerHTML = notes.map(n=>`<div class="note-item">${n.added_by_type==='customer'?'<b>You:</b> ':''}${n.note}<div class="note-meta">${new Date(n.created_at).toLocaleString('en-IN')}</div></div>`).join('') || `<div style="color:var(--mut);font-size:12.5px;">No messages yet.</div>`;
+}
+async function sendQuery(){
+  const txt = document.getElementById('query-text').value.trim();
+  if(!txt || !PROJECT) return;
+  await YS.insert('lead_notes', {lead_id:PROJECT.lead_id, note:txt, added_by_type:'customer', added_by_id:session.id});
+  document.getElementById('query-text').value='';
+  renderHome();
+  alert('✓ Sent to your design team.');
+}
+
+function renderDesigns(){
+  const designs = YS.all('design_files').filter(d=>d.project_id===PROJECT.id).sort((a,b)=>a.room_name.localeCompare(b.room_name));
+  document.getElementById('designs-list').innerHTML = designs.map(d=>`
+    <div class="card design-card">
+      <img src="${d.file_url}"/>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div class="card-title" style="margin-bottom:2px;">${d.room_name}</div>
+          <div class="card-sub" style="margin-bottom:0;">${d.notes||''} · v${d.version}</div>
+        </div>
+        ${d.customer_approved
+          ? `<span class="pill p-ok">✓ Approved</span>`
+          : `<button class="btn btn-c btn-sm" onclick="approveDesign('${d.id}')">Approve</button>`}
+      </div>
+    </div>
+  `).join('') || `<div class="card" style="text-align:center;color:var(--mut);">No design renders uploaded yet.</div>`;
+}
+async function approveDesign(id){
+  await YS.update('design_files', id, {customer_approved:true, approved_at:new Date().toISOString()});
+  renderDesigns();
+}
+
+function renderPayments(){
+  const milestones = YS.all('payment_milestones').filter(m=>m.project_id===PROJECT.id);
+  document.getElementById('pay-milestones').innerHTML = milestones.map(m=>`
+    <div class="pay-row">
+      <div><div style="font-weight:600;font-size:13px;">${m.milestone_name}</div><div style="font-size:11px;color:var(--mut);">${m.percentage}% · Due ${m.due_date}</div></div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;">₹${Number(m.amount).toLocaleString('en-IN')}</div>
+        ${m.status==='paid' ? `<span class="pill p-ok">Paid</span>` : `<button class="btn btn-c btn-sm" onclick="openPayModal('${m.id}')">Pay Now</button>`}
+      </div>
+    </div>`).join('');
+
+  const payments = YS.all('payments').filter(p=>p.project_id===PROJECT.id).sort((a,b)=>new Date(b.paid_at)-new Date(a.paid_at));
+  document.getElementById('pay-history').innerHTML = payments.map(p=>`
+    <div class="pay-row">
+      <div><div style="font-weight:600;font-size:13px;">${p.mode}${p.txn_ref?' · '+p.txn_ref:''}</div><div style="font-size:11px;color:var(--mut);">${new Date(p.paid_at).toLocaleDateString('en-IN')}</div></div>
+      <div style="text-align:right;"><div style="font-weight:700;">₹${Number(p.amount).toLocaleString('en-IN')}</div><span class="pill ${p.verified?'p-ok':'p-wrn'}">${p.verified?'Verified':'Pending verification'}</span></div>
+    </div>`).join('') || `<div style="color:var(--mut);font-size:12.5px;">No payments recorded yet.</div>`;
+}
+function openPayModal(mid){
+  PAY_MILESTONE_ID = mid;
+  const m = YS.find('payment_milestones', mid);
+  const settings = YS.all('payment_settings')[0] || {};
+  document.getElementById('pay-modal-body').innerHTML = `
+    <div class="card" style="margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--mut);">${m.milestone_name}</div>
+      <div style="font-size:24px;font-weight:800;">₹${Number(m.amount).toLocaleString('en-IN')}</div>
+    </div>
+    <div class="fr"><label class="fl">Pay via UPI</label><div style="font-size:14px;font-weight:700;">${settings.upi_id||'—'}</div></div>
+    <div class="fr"><label class="fl">Or Bank Transfer</label><div style="font-size:12.5px;color:var(--mut);">${settings.bank_details||'—'}</div></div>
+    <div class="fr"><label class="fl">Transaction Reference (after paying)</label><input type="text" id="pay-ref" placeholder="UTR / Txn ID"/></div>
+    <button class="btn btn-c btn-f" onclick="submitPayment()">I've Paid — Submit for Verification</button>
+  `;
+  document.getElementById('pay-modal').classList.add('open');
+}
+async function submitPayment(){
+  const ref = document.getElementById('pay-ref').value.trim();
+  if(!ref){ alert('Please enter your transaction reference.'); return; }
+  const m = YS.find('payment_milestones', PAY_MILESTONE_ID);
+  await YS.insert('payments', {project_id:PROJECT.id, milestone_id:m.id, amount:m.amount, mode:'UPI', txn_ref:ref, verified:false});
+  await YS.update('payment_milestones', m.id, {status:'paid'});
+  closeModal('pay-modal');
+  renderPayments(); renderHome();
+  alert('✓ Submitted! Our team will verify and confirm shortly.');
+}
+
+function renderTimeline(){
+  const stages = stagesOf();
+  document.getElementById('timeline-list').innerHTML = stages.map(s=>`
+    <div class="tl-item">
+      <div class="tl-line"></div>
+      <div class="tl-dot ${s.status==='completed'?'done':s.status==='in_progress'?'active':''}"></div>
+      <div class="tl-name">${STAGE_ICONS[s.stage_name]||''} ${s.stage_name}</div>
+      <div class="tl-date">${s.status==='completed' ? 'Completed '+s.completed_date : s.status==='in_progress' ? 'In progress' : 'Upcoming'}</div>
+      ${s.remarks && s.remarks.startsWith('⚠') ? `<div class="tl-remark">${s.remarks}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderPhotos(){
+  const photos = YS.all('stage_photos').filter(p=>p.project_id===PROJECT.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const stages = stagesOf();
+  document.getElementById('photos-gallery').innerHTML = photos.map(p=>{
+    const st = stages.find(s=>s.id===p.stage_id);
+    return `<figure><img src="${p.photo_url}"/><figcaption>${p.caption||''}<br>${st?st.stage_name:''}</figcaption></figure>`;
+  }).join('') || `<div style="color:var(--mut);font-size:12.5px;grid-column:1/-1;">No photos yet — check back once production begins.</div>`;
+}
+</script>
+</body>
+</html>

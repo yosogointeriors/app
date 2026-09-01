@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YOSOGO — Site &amp; Production</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --ink:#5c3a1a;--amber:#8a5a26;--amber-lt:#C08A3E;
+  --bg:#FAF5EE;--surf:#fff;--surf2:#F3EADD;--surf3:#E8DBC5;
+  --bdr:rgba(92,58,26,0.13);--bdr2:rgba(92,58,26,0.2);
+  --txt:#2E1D0D;--mut:#7A6247;--hnt:#AC9576;
+  --ok-bg:#E7F3E1;--ok-tx:#2C6B27;--no-bg:#FBE9E5;--no-tx:#A3352B;
+  --inf-bg:#EAF0F6;--inf-tx:#2A5490;--wrn-bg:#FBF1DD;--wrn-tx:#8A5B0B;
+  --rad:8px;--rad-lg:12px;--rad-xl:16px;--sidebar-w:210px;
+}
+html,body{height:100%;background:var(--bg);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--txt);min-height:100vh;}
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ink);padding:20px;}
+.login-box{background:var(--surf);border-radius:var(--rad-xl);padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.login-logo{font-weight:900;font-size:20px;letter-spacing:1px;}
+.login-logo span{color:var(--amber);}
+.login-sub{font-size:12.5px;color:var(--mut);margin-bottom:24px;}
+.login-hint{font-size:11.5px;color:var(--hnt);margin-top:14px;text-align:center;}
+
+.app-wrap{display:none;min-height:100vh;}
+.app-wrap.show{display:flex;}
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--ink);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:20;}
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.sidebar-logo b{color:#fff;font-size:16px;}
+.sidebar-logo b span{color:var(--amber-lt);}
+.sidebar-logo-sub{font-size:10.5px;color:rgba(255,255,255,0.5);margin-top:4px;}
+.nav{flex:1;padding:10px 0;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13px;font-weight:500;color:rgba(255,255,255,0.62);cursor:pointer;border-left:3px solid transparent;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:#fff;}
+.nav-item.active{background:rgba(192,138,62,0.2);color:var(--amber-lt);border-left-color:var(--amber-lt);}
+.sidebar-footer{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1);}
+.sidebar-footer .who{font-size:12px;color:#fff;font-weight:600;}
+.sidebar-footer .role{font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;}
+
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.topbar{background:var(--surf);border-bottom:0.5px solid var(--bdr);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.topbar-title{font-size:15px;font-weight:700;}
+.content{padding:24px 28px;flex:1;}
+.tab{display:none;}
+.tab.active{display:block;}
+
+.btn{padding:9px 16px;font-size:13px;font-weight:600;border-radius:var(--rad);cursor:pointer;border:0.5px solid var(--bdr2);background:var(--surf2);color:var(--txt);font-family:inherit;}
+.btn:hover{background:var(--surf3);}
+.btn-p{background:var(--ink);color:#fff;border-color:var(--ink);}
+.btn-c{background:var(--amber);color:#fff;border-color:var(--amber);}
+.btn-c:hover{background:#714a1f;}
+.btn-d{background:var(--no-bg);color:var(--no-tx);border-color:transparent;}
+.btn-w{background:var(--wrn-bg);color:var(--wrn-tx);border-color:transparent;}
+.btn-sm{padding:5px 11px;font-size:12px;}
+.btn-xs{padding:4px 9px;font-size:11px;font-weight:600;}
+.btn-f{width:100%;display:block;}
+
+.pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;}
+.p-ok{background:var(--ok-bg);color:var(--ok-tx);}
+.p-no{background:var(--no-bg);color:var(--no-tx);}
+.p-inf{background:var(--inf-bg);color:var(--inf-tx);}
+.p-wrn{background:var(--wrn-bg);color:var(--wrn-tx);}
+
+.fl{font-size:12px;font-weight:700;color:var(--mut);margin-bottom:5px;display:block;}
+input[type=text],input[type=email],input[type=password],input[type=date],select,textarea{
+  width:100%;padding:8px 11px;font-size:13px;border:0.5px solid var(--bdr2);border-radius:var(--rad);background:var(--surf2);color:var(--txt);outline:none;font-family:inherit;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(138,90,38,0.13);}
+.fr{margin-bottom:12px;}
+
+.page-title{font-size:22px;font-weight:700;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--mut);margin-bottom:22px;}
+
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.stat-card{background:var(--surf);border:0.5px solid var(--bdr);border-radius:var(--rad-lg);padding:16px 18px;}
+.stat-num{font-size:24px;font-weight:700;}
+.stat-lbl{font-size:11.5px;color:var(--mut);}
+
+.card{background:var(--surf);border:0.5px solid var(--bdr);border-radius:var(--rad-lg);padding:18px 20px;margin-bottom:16px;cursor:pointer;}
+.card-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.card-sub{font-size:12px;color:var(--mut);margin-bottom:12px;}
+
+.stage-bar{display:flex;gap:3px;margin:8px 0;}
+.stage-seg{flex:1;height:6px;border-radius:3px;background:var(--surf3);}
+.stage-seg.done{background:#3B7C33;}
+.stage-seg.active{background:var(--amber);}
+
+.stage-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:0.5px solid var(--bdr);}
+.stage-row:last-child{border-bottom:none;}
+.stage-name{font-size:13.5px;font-weight:600;}
+.stage-actions{display:flex;gap:6px;align-items:center;}
+
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px;}
+.gallery img{width:100%;height:90px;object-fit:cover;border-radius:8px;border:0.5px solid var(--bdr);}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(46,29,13,0.5);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:40px 16px;overflow-y:auto;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--surf);border-radius:var(--rad-xl);width:100%;max-width:680px;}
+.modal-head{padding:18px 22px;border-bottom:0.5px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;background:var(--surf2);}
+.modal-head h3{font-size:16px;font-weight:700;}
+.modal-close{cursor:pointer;font-size:20px;color:var(--mut);background:none;border:none;}
+.modal-body{padding:20px 22px;max-height:70vh;overflow-y:auto;}
+.modal-foot{padding:14px 22px;border-top:0.5px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end;background:var(--surf2);}
+
+@media(max-width:900px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">YOSO<span>GO</span></div>
+    <div class="login-sub">Site &amp; Production Portal</div>
+    <div class="fr"><label class="fl">Email</label><input type="email" id="li-email" value="manoj@yosogo.in"/></div>
+    <div class="fr"><label class="fl">Password</label><input type="password" id="li-pass" value="team123"/></div>
+    <button class="btn btn-p btn-f" onclick="doLogin()" disabled>Loading…</button>
+    <div id="li-err" style="color:var(--no-tx);font-size:12px;margin-top:10px;display:none;"></div>
+    <div class="login-hint">Demo login pre-filled · manoj@yosogo.in / team123</div>
+  </div>
+</div>
+
+<div class="app-wrap" id="app-wrap">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><b>YOSO<span>GO</span></b><div class="sidebar-logo-sub">Site &amp; Production</div></div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="showTab('projects')" data-tab="projects">🏗 My Projects</div>
+      <div class="nav-item" onclick="showTab('alerts')" data-tab="alerts">⚠️ Delay Flags</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="who" id="who-name">—</div>
+      <div class="role" id="who-role">—</div>
+      <button class="btn btn-sm btn-f" onclick="logout()">Log Out</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar"><div class="topbar-title" id="topbar-title">My Projects</div><a href="index.html" class="btn btn-sm">← Portal Hub</a></div>
+    <div class="content">
+
+      <div class="tab active" id="tab-projects">
+        <div class="page-title">My Projects</div>
+        <div class="page-sub">Move each project through fabrication, quality check, delivery and installation.</div>
+        <div class="stat-grid" id="proj-stats"></div>
+        <div id="projects-list"></div>
+      </div>
+
+      <div class="tab" id="tab-alerts">
+        <div class="page-title">Delay Flags</div>
+        <div class="page-sub">Everything you've flagged to HQ across your projects.</div>
+        <div id="alerts-list"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- STAGE DETAIL MODAL -->
+<div class="modal-overlay" id="proj-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3 id="pm-title">Project</h3><button class="modal-close" onclick="closeModal('proj-modal')">×</button></div>
+    <div class="modal-body" id="pm-body"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('proj-modal')">Close</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="yosogo-data.js"></script>
+<script>
+let session = null;
+let CURRENT_PROJ_ID = null;
+
+YS.init().then(()=>{
+  const btn = document.querySelector('#login-screen .btn-p');
+  if(btn){ btn.disabled=false; btn.textContent='Sign In →'; }
+});
+YS.onChange(()=>{ if(session) renderAll(); });
+
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  const errEl = document.getElementById('li-err');
+  errEl.style.display='none';
+  try{
+    const { account: acc } = await YS.login('team', email, pass);
+    if(acc.role !== 'site_manager'){ errEl.style.display='block'; errEl.textContent='This account is not a Site Manager.'; return; }
+    session = acc;
+    await YS.ready();
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-wrap').classList.add('show');
+    document.getElementById('who-name').textContent = acc.name;
+    document.getElementById('who-role').textContent = 'Site Manager · ' + (acc.city||'');
+    renderAll();
+  }catch(e){
+    errEl.style.display='block'; errEl.textContent = e.message || 'Invalid login.';
+  }
+}
+function logout(){ session=null; document.getElementById('app-wrap').classList.remove('show'); document.getElementById('login-screen').style.display='flex'; }
+function showTab(tab){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));
+  document.getElementById('topbar-title').textContent = tab==='projects'?'My Projects':'Delay Flags';
+  renderAll();
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function myProjects(){
+  return YS.all('projects').filter(p=>p.site_manager_id===session.id || p.city===session.city).filter(p=>p.status==='active');
+}
+
+function renderAll(){ renderProjectStats(); renderProjectsList(); renderAlerts(); }
+
+function renderProjectStats(){
+  const projects = myProjects();
+  const stages = YS.all('project_stages');
+  const inProd = projects.filter(p=>{
+    const st = stages.filter(s=>s.project_id===p.id);
+    const cur = st.find(s=>s.status==='in_progress');
+    return cur && ['Production (Factory)','Quality Check'].includes(cur.stage_name);
+  }).length;
+  const inInstall = projects.filter(p=>{
+    const cur = stages.find(s=>s.project_id===p.id && s.status==='in_progress');
+    return cur && cur.stage_name==='Installation';
+  }).length;
+  const delayed = stages.filter(s=>projects.some(p=>p.id===s.project_id) && s.remarks && s.remarks.startsWith('⚠')).length;
+  document.getElementById('proj-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${projects.length}</div><div class="stat-lbl">Active Projects</div></div>
+    <div class="stat-card"><div class="stat-num">${inProd}</div><div class="stat-lbl">In Production</div></div>
+    <div class="stat-card"><div class="stat-num">${inInstall}</div><div class="stat-lbl">In Installation</div></div>
+    <div class="stat-card"><div class="stat-num">${delayed}</div><div class="stat-lbl">Delay Flags</div></div>
+  `;
+}
+
+function renderProjectsList(){
+  const projects = myProjects();
+  const stages = YS.all('project_stages');
+  document.getElementById('projects-list').innerHTML = projects.map(p=>{
+    const st = stages.filter(s=>s.project_id===p.id).sort((a,b)=>a.stage_order-b.stage_order);
+    const current = st.find(s=>s.status==='in_progress');
+    return `<div class="card" onclick="openProjectDetail('${p.id}')">
+      <div class="card-title">${p.project_name}</div>
+      <div class="card-sub">${p.city} · Target handover: ${p.target_handover_date||'—'}</div>
+      <div class="stage-bar">${st.map(s=>`<div class="stage-seg ${s.status==='completed'?'done':s.status==='in_progress'?'active':''}" title="${s.stage_name}"></div>`).join('')}</div>
+      <div style="font-size:12px;color:var(--mut);">Current: <b style="color:var(--txt);">${current?current.stage_name:(st.every(s=>s.status==='completed')?'Completed':'Not started')}</b></div>
+    </div>`;
+  }).join('') || `<div class="card" style="text-align:center;color:var(--mut);cursor:default;">No projects assigned to you yet.</div>`;
+}
+
+function openProjectDetail(id){
+  CURRENT_PROJ_ID = id;
+  const p = YS.find('projects', id);
+  const stages = YS.all('project_stages').filter(s=>s.project_id===id).sort((a,b)=>a.stage_order-b.stage_order);
+  const photos = YS.all('stage_photos').filter(ph=>ph.project_id===id);
+  document.getElementById('pm-title').textContent = p.project_name;
+  document.getElementById('pm-body').innerHTML = `
+    <div style="margin-bottom:6px;color:var(--mut);font-size:12.5px;">${p.address||p.city}</div>
+    ${stages.map(s=>`
+      <div class="stage-row">
+        <div>
+          <div class="stage-name">${s.stage_order}. ${s.stage_name}</div>
+          ${s.remarks ? `<div style="font-size:11px;color:${s.remarks.startsWith('⚠')?'var(--no-tx)':'var(--mut)'};margin-top:2px;">${s.remarks}</div>` : ''}
+        </div>
+        <div class="stage-actions">
+          <span class="pill ${s.status==='completed'?'p-ok':s.status==='in_progress'?'p-wrn':'p-inf'}">${s.status.replace('_',' ')}</span>
+          ${s.status==='pending' ? `<button class="btn btn-xs" onclick="startStage('${id}','${s.id}')">Start</button>`:''}
+          ${s.status==='in_progress' ? `<button class="btn btn-c btn-xs" onclick="completeStage('${id}','${s.id}')">Complete</button>`:''}
+          <button class="btn btn-xs" onclick="uploadPhoto('${id}','${s.id}')">📷 Photo</button>
+          <button class="btn btn-w btn-xs" onclick="flagDelay('${s.id}')">⚠</button>
+        </div>
+      </div>`).join('')}
+    <div class="card-title" style="font-size:13px;margin-top:16px;">All Photos (${photos.length})</div>
+    <div class="gallery">${photos.map(ph=>`<div><img src="${ph.photo_url}"/><div style="font-size:10.5px;margin-top:3px;">${ph.caption||''}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
+  `;
+  document.getElementById('proj-modal').classList.add('open');
+}
+
+async function startStage(projId, stageId){
+  await YS.update('project_stages', stageId, {status:'in_progress', planned_date: new Date().toISOString().slice(0,10)});
+  openProjectDetail(projId); renderAll();
+}
+async function completeStage(projId, stageId){
+  const stages = YS.all('project_stages').filter(s=>s.project_id===projId).sort((a,b)=>a.stage_order-b.stage_order);
+  const idx = stages.findIndex(s=>s.id===stageId);
+  await YS.update('project_stages', stageId, {status:'completed', completed_date:new Date().toISOString().slice(0,10)});
+  const next = stages[idx+1];
+  if(next){
+    await YS.update('project_stages', next.id, {status:'in_progress'});
+    await YS.update('projects', projId, {current_stage_order: next.stage_order});
+  } else {
+    await YS.update('projects', projId, {status:'completed', actual_handover_date:new Date().toISOString().slice(0,10)});
+  }
+  openProjectDetail(projId); renderAll();
+}
+async function uploadPhoto(projId, stageId){
+  const caption = prompt('Photo caption (e.g. "Carcass fitted — kitchen")');
+  if(caption===null) return;
+  const url = 'https://picsum.photos/seed/'+Math.random().toString(36).slice(2,8)+'/500/360';
+  await YS.insert('stage_photos', {project_id:projId, stage_id:stageId, photo_url:url, caption, uploaded_by_type:'team', uploaded_by_id:session.id});
+  openProjectDetail(projId); renderAll();
+  alert('✓ Photo uploaded — visible on the customer\'s portal instantly.');
+}
+async function flagDelay(stageId){
+  const note = prompt('Describe the delay / material shortage:');
+  if(!note) return;
+  await YS.update('project_stages', stageId, {remarks: '⚠ ' + note});
+  openProjectDetail(CURRENT_PROJ_ID); renderAll();
+}
+
+function renderAlerts(){
+  const projects = myProjects();
+  const flagged = YS.all('project_stages').filter(s=>projects.some(p=>p.id===s.project_id) && s.remarks && s.remarks.startsWith('⚠'));
+  document.getElementById('alerts-list').innerHTML = flagged.map(s=>{
+    const p = YS.find('projects', s.project_id);
+    return `<div class="card" style="cursor:pointer;" onclick="openProjectDetail('${p.id}')">
+      <div class="card-title">${p.project_name}</div>
+      <div class="card-sub">Stage: ${s.stage_name}</div>
+      <div style="color:var(--no-tx);font-size:13px;">${s.remarks}</div>
+    </div>`;
+  }).join('') || `<div class="card" style="text-align:center;color:var(--mut);cursor:default;">No delay flags — everything on track. 🎉</div>`;
+}
+</script>
+</body>
+</html>
