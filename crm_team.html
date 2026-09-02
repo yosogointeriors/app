@@ -391,20 +391,24 @@ function openLeadDetail(id){
     <div style="margin-bottom:8px;">${designs.map(d=>{
       const isImage = /\.(png|jpe?g|gif|webp)$/i.test(d.file_name||d.file_url||'');
       const statusPill = d.status==='sent_to_production' ? '<span class="pill p-ok">📤 Sent to Production</span>'
-        : d.status==='verified' ? '<span class="pill p-inf">✓ Verified</span>'
+        : d.status==='customer_approved' ? '<span class="pill p-ok">✅ Customer Signed Off</span>'
+        : d.status==='verified' ? '<span class="pill p-inf">✓ Verified — awaiting customer sign-off</span>'
         : '<span class="pill p-wrn">Uploaded</span>';
       const actionBtn = d.status==='uploaded' ? `<button class="btn btn-xs" onclick="verifyDesignFile('${d.id}','${id}')">✓ Verify</button>`
-        : d.status==='verified' ? `<button class="btn btn-c btn-xs" onclick="sendDesignToProduction('${d.id}','${id}')">📤 Send to Production</button>`
+        : d.status==='customer_approved' ? `<button class="btn btn-c btn-xs" onclick="sendDesignToProduction('${d.id}','${id}')">📤 Send to Production</button>`
         : '';
-      return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${isImage ? `<img src="${d.file_url}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;"/>` : `<div style="width:44px;height:44px;border-radius:6px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:18px;">📄</div>`}
-          <div>
-            <div style="font-size:12.5px;font-weight:600;">${d.room_name} <span style="font-weight:400;color:var(--mut);">v${d.version}</span> ${d.customer_approved?' ✅':''}</div>
-            <a href="${d.file_url}" target="_blank" style="font-size:11px;color:var(--blue);">View File</a>
+      return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${isImage ? `<img src="${d.file_url}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;"/>` : `<div style="width:44px;height:44px;border-radius:6px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:18px;">📄</div>`}
+            <div>
+              <div style="font-size:12.5px;font-weight:600;">${d.room_name} <span style="font-weight:400;color:var(--mut);">v${d.version}</span></div>
+              <a href="${d.file_url}" target="_blank" style="font-size:11px;color:var(--blue);">View File</a>
+            </div>
           </div>
+          <div style="display:flex;align-items:center;gap:6px;">${statusPill}${actionBtn}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;">${statusPill}${actionBtn}</div>
+        ${d.customer_comment ? `<div style="margin-top:8px;padding:8px;background:var(--surf2);border-radius:6px;font-size:11.5px;"><b>Customer comment:</b> ${d.customer_comment}</div>` : ''}
       </div>`;
     }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
     <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Notes &amp; Site Visit Log</div>
@@ -480,6 +484,8 @@ async function verifyDesignFile(designId, leadId){
   openLeadDetail(leadId);
 }
 async function sendDesignToProduction(designId, leadId){
+  const d = YS.find('design_files', designId);
+  if(!d || !d.customer_approved){ alert('This document needs the customer\'s sign-off before it can go to production.'); return; }
   await YS.update('design_files', designId, {status:'sent_to_production', sent_to_production_at:new Date().toISOString()});
   openLeadDetail(leadId);
   alert('✓ Sent to Site & Production team.');

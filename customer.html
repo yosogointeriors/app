@@ -170,7 +170,7 @@ input:focus,textarea:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(16
     </div>
 
     <div class="tabpage" id="tp-designs">
-      <div class="card-sub" style="margin-bottom:10px;">Approve each room's design so we can move to production.</div>
+      <div class="card-sub" style="margin-bottom:10px;">Review each room's design and sign off so we can proceed to production.</div>
       <div id="designs-list"></div>
     </div>
 
@@ -306,25 +306,42 @@ async function sendQuery(){
 }
 
 function renderDesigns(){
-  const designs = YS.all('design_files').filter(d=>d.project_id===PROJECT.id).sort((a,b)=>a.room_name.localeCompare(b.room_name));
-  document.getElementById('designs-list').innerHTML = designs.map(d=>`
-    <div class="card design-card">
-      <img src="${d.file_url}"/>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
+  const all = YS.all('design_files').filter(d=>d.project_id===PROJECT.id);
+  // Only show documents the design team has internally checked — raw
+  // uploads not yet verified aren't ready for the customer to see.
+  const designs = all.filter(d=>['verified','customer_approved','sent_to_production'].includes(d.status))
+    .sort((a,b)=>a.room_name.localeCompare(b.room_name));
+  document.getElementById('designs-list').innerHTML = designs.map(d=>{
+    const isImage = /\.(png|jpe?g|gif|webp)$/i.test(d.file_name||d.file_url||'');
+    const preview = isImage
+      ? `<img src="${d.file_url}"/>`
+      : `<a href="${d.file_url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:140px;background:var(--surf2);border-radius:10px;margin-bottom:8px;font-size:13px;color:var(--rose);text-decoration:none;">📄 View Design File</a>`;
+    const signedOff = d.status==='customer_approved' || d.status==='sent_to_production';
+    return `<div class="card design-card">
+      ${preview}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
         <div>
           <div class="card-title" style="margin-bottom:2px;">${d.room_name}</div>
           <div class="card-sub" style="margin-bottom:0;">${d.notes||''} · v${d.version}</div>
         </div>
-        ${d.customer_approved
-          ? `<span class="pill p-ok">✓ Approved</span>`
-          : `<button class="btn btn-c btn-sm" onclick="approveDesign('${d.id}')">Approve</button>`}
+        ${signedOff ? `<span class="pill p-ok">✓ Signed Off</span>` : `<span class="pill p-wrn">Awaiting your sign-off</span>`}
       </div>
-    </div>
-  `).join('') || `<div class="card" style="text-align:center;color:var(--mut);">No design renders uploaded yet.</div>`;
+      ${signedOff
+        ? (d.customer_comment ? `<div style="background:var(--surf2);border-radius:8px;padding:8px 10px;font-size:12px;margin-top:4px;"><b>Your comment:</b> ${d.customer_comment}</div>` : '')
+        : `<textarea id="signoff-note-${d.id}" placeholder="Optional comment — e.g. 'Proceed as per design'" style="width:100%;margin-top:6px;"></textarea>
+           <button class="btn btn-c btn-f" style="margin-top:8px;" onclick="signOffDesign('${d.id}')">✓ Sign Off &amp; Approve Design</button>`}
+    </div>`;
+  }).join('') || `<div class="card" style="text-align:center;color:var(--mut);">No design files ready for review yet.</div>`;
 }
-async function approveDesign(id){
-  await YS.update('design_files', id, {customer_approved:true, approved_at:new Date().toISOString()});
+async function signOffDesign(id){
+  const noteEl = document.getElementById('signoff-note-'+id);
+  const comment = noteEl ? noteEl.value.trim() : '';
+  await YS.update('design_files', id, {
+    customer_approved: true, approved_at: new Date().toISOString(),
+    customer_comment: comment || null, status: 'customer_approved'
+  });
   renderDesigns();
+  alert('✓ Thank you — your sign-off has been recorded. Our team will proceed with production.');
 }
 
 function renderPayments(){

@@ -147,8 +147,9 @@ create table design_files (
   version int default 1,
   notes text,
   customer_approved boolean default false,
+  customer_comment text,           -- customer's sign-off remark, e.g. "Proceed as per design"
   approved_at timestamptz,
-  status text default 'uploaded',  -- uploaded | verified | sent_to_production
+  status text default 'uploaded',  -- uploaded | verified | customer_approved | sent_to_production
   verified_at timestamptz,
   sent_to_production_at timestamptz,
   created_at timestamptz default now()

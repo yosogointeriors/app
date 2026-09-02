@@ -699,7 +699,15 @@ function openProjectDetail(id){
       <span class="pill ${s.status==='completed'?'p-ok':s.status==='in_progress'?'p-wrn':'p-inf'}">${s.status.replace('_',' ')}</span>
     </div>`).join('')}
     <div class="adm-card-title" style="font-size:13px;margin-top:18px;">Design Files (${designs.length})</div>
-    <div class="gallery">${designs.map(d=>`<div><img src="${d.file_url}"/><div style="font-size:10.5px;margin-top:3px;">${d.room_name} ${d.customer_approved?'✅':'⏳'}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded.</span>'}</div>
+    <div style="margin-bottom:8px;">${designs.map(d=>{
+      const isImage = /\.(png|jpe?g|gif|webp)$/i.test(d.file_name||d.file_url||'');
+      const statusLabel = d.status==='sent_to_production' ? '📤 Sent to Production' : d.status==='customer_approved' ? '✅ Customer Signed Off' : d.status==='verified' ? '✓ Verified' : 'Uploaded';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:0.5px solid var(--bdr);">
+        ${isImage ? `<img src="${d.file_url}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;"/>` : `<div style="width:36px;height:36px;border-radius:6px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:15px;">📄</div>`}
+        <div style="flex:1;"><a href="${d.file_url}" target="_blank" style="font-size:12.5px;font-weight:600;">${d.room_name}</a>${d.customer_comment?`<div style="font-size:11px;color:var(--mut);">"${d.customer_comment}"</div>`:''}</div>
+        <span class="pill p-inf">${statusLabel}</span>
+      </div>`;
+    }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded.</span>'}</div>
     <div class="adm-card-title" style="font-size:13px;margin-top:18px;">Site &amp; Factory Photos (${photos.length})</div>
     <div class="gallery">${photos.map(ph=>`<div><img src="${ph.photo_url}"/><div style="font-size:10.5px;margin-top:3px;">${ph.caption||''}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
     <div class="adm-card-title" style="font-size:13px;margin-top:18px;">Payment Milestones</div>
