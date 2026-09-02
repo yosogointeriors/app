@@ -125,7 +125,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber);box-shadow:0 0
   <aside class="sidebar">
     <div class="sidebar-logo"><img src="logo.png" alt="YOSOGO" style="height:26px;width:auto;display:block;"/><div class="sidebar-logo-sub">Site &amp; Production</div></div>
     <nav class="nav">
-      <div class="nav-item active" onclick="showTab('projects')" data-tab="projects">🏗 My Projects</div>
+      <div class="nav-item" onclick="showTab('production')" data-tab="production">🏭 Production Queue</div>
+      <div class="nav-item active" onclick="showTab('projects')" data-tab="projects">🚚 Installation</div>
       <div class="nav-item" onclick="showTab('alerts')" data-tab="alerts">⚠️ Delay Flags</div>
     </nav>
     <div class="sidebar-footer">
@@ -136,12 +137,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber);box-shadow:0 0
   </aside>
 
   <div class="main">
-    <div class="topbar"><div class="topbar-title" id="topbar-title">My Projects</div><a href="index.html" class="btn btn-sm">← Portal Hub</a></div>
+    <div class="topbar"><div class="topbar-title" id="topbar-title">Installation Projects</div><a href="index.html" class="btn btn-sm">← Portal Hub</a></div>
     <div class="content">
 
+      <div class="tab" id="tab-production">
+        <div class="page-title">Production Queue</div>
+        <div class="page-sub">Projects in fabrication or quality check — mark materials ready and set a dispatch date once done.</div>
+        <div id="production-list"></div>
+      </div>
+
       <div class="tab active" id="tab-projects">
-        <div class="page-title">My Projects</div>
-        <div class="page-sub">Move each project through fabrication, quality check, delivery and installation.</div>
+        <div class="page-title">Installation Projects</div>
+        <div class="page-sub">Move each project through delivery, installation and final handover — upload final site photos for the customer.</div>
         <div class="stat-grid" id="proj-stats"></div>
         <div id="projects-list"></div>
       </div>
@@ -185,14 +192,20 @@ async function doLogin(){
   errEl.style.display='none';
   try{
     const { account: acc } = await YS.login('team', email, pass);
-    if(!(acc.roles||[]).includes('site_manager')){ errEl.style.display='block'; errEl.textContent='This account does not have the Site Manager role.'; return; }
+    const roles = acc.roles||[];
+    if(!roles.includes('site_manager') && !roles.includes('production_head')){
+      errEl.style.display='block'; errEl.textContent='This account needs the Site Manager or Production Head role.'; return;
+    }
     session = acc;
     await YS.ready();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-wrap').classList.add('show');
     document.getElementById('who-name').textContent = acc.name;
-    document.getElementById('who-role').textContent = 'Site Manager · ' + (acc.city||'');
-    renderAll();
+    document.getElementById('who-role').textContent = roles.map(r=>r.replace('_',' ')).join(', ') + ' · ' + (acc.city||'');
+    // Show only the nav tabs relevant to this person's roles.
+    document.querySelector('[data-tab="production"]').style.display = roles.includes('production_head') ? 'flex' : 'none';
+    document.querySelector('[data-tab="projects"]').style.display = roles.includes('site_manager') ? 'flex' : 'none';
+    showTab(roles.includes('production_head') ? 'production' : 'projects');
   }catch(e){
     errEl.style.display='block'; errEl.textContent = e.message || 'Invalid login.';
   }
@@ -201,16 +214,36 @@ function logout(){ session=null; document.getElementById('app-wrap').classList.r
 function showTab(tab){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));
-  document.getElementById('topbar-title').textContent = tab==='projects'?'My Projects':'Delay Flags';
+  document.getElementById('topbar-title').textContent = {production:'Production Queue', projects:'Installation Projects', alerts:'Delay Flags'}[tab];
   renderAll();
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
 function myProjects(){
-  return YS.all('projects').filter(p=>p.site_manager_id===session.id || p.city===session.city).filter(p=>p.status==='active');
+  // Same "everyone does everything" visibility as the CRM portal — until
+  // there's a real reason to scope this down, show every active project to
+  // any logged-in Site/Production team member.
+  return YS.all('projects').filter(p=>p.status==='active');
 }
 
-function renderAll(){ renderProjectStats(); renderProjectsList(); renderAlerts(); }
+function renderAll(){ renderProjectStats(); renderProjectsList(); renderProductionQueue(); renderAlerts(); }
+
+function renderProductionQueue(){
+  const el = document.getElementById('production-list');
+  if(!el) return;
+  const projects = myProjects().filter(p => (p.current_stage_order||1) <= 6);
+  const stages = YS.all('project_stages');
+  el.innerHTML = projects.map(p=>{
+    const st = stages.filter(s=>s.project_id===p.id).sort((a,b)=>a.stage_order-b.stage_order);
+    const current = st.find(s=>s.status==='in_progress');
+    return `<div class="card" onclick="openProjectDetail('${p.id}')">
+      <div class="card-title">${p.project_name}</div>
+      <div class="card-sub">${p.city} · Target handover: ${p.target_handover_date||'—'}</div>
+      <div class="stage-bar">${st.map(s=>`<div class="stage-seg ${s.status==='completed'?'done':s.status==='in_progress'?'active':''}" title="${s.stage_name}"></div>`).join('')}</div>
+      <div style="font-size:12px;color:var(--mut);">Current: <b style="color:var(--txt);">${current?current.stage_name:'Not started'}</b></div>
+    </div>`;
+  }).join('') || `<div class="card" style="text-align:center;color:var(--mut);cursor:default;">No projects currently in production.</div>`;
+}
 
 function renderProjectStats(){
   const projects = myProjects();
@@ -283,7 +316,9 @@ function openProjectDetail(id){
         </div>
         <div class="stage-actions">
           <span class="pill ${s.status==='completed'?'p-ok':s.status==='in_progress'?'p-wrn':'p-inf'}">${s.status.replace('_',' ')}</span>
-          ${s.status==='pending' ? `<button class="btn btn-xs" onclick="startStage('${id}','${s.id}')">Start</button>`:''}
+          ${s.stage_name==='Delivery to Site' && s.status==='pending' ? `<button class="btn btn-c btn-xs" onclick="markDispatchReady('${id}','${s.id}')">📦 Mark Dispatch Ready</button>` : ''}
+          ${s.stage_name==='Delivery to Site' && s.status==='in_progress' && s.planned_date ? `<span class="pill p-ok">Dispatch: ${s.planned_date}</span>` : ''}
+          ${s.status==='pending' && s.stage_name!=='Delivery to Site' ? `<button class="btn btn-xs" onclick="startStage('${id}','${s.id}')">Start</button>`:''}
           ${s.status==='in_progress' ? `<button class="btn btn-c btn-xs" onclick="completeStage('${id}','${s.id}')">Complete</button>`:''}
           <button class="btn btn-xs" onclick="uploadPhoto('${id}','${s.id}')">📷 Photo${s.stage_name==='Final Handover'?' (Final)':''}</button>
           <button class="btn btn-w btn-xs" onclick="flagDelay('${s.id}')">⚠</button>
@@ -293,6 +328,14 @@ function openProjectDetail(id){
     <div class="gallery">${photos.map(ph=>`<div><img src="${ph.photo_url}"/><div style="font-size:10.5px;margin-top:3px;">${ph.caption||''}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
   `;
   document.getElementById('proj-modal').classList.add('open');
+}
+
+async function markDispatchReady(projId, stageId){
+  const date = prompt('Dispatch date? (YYYY-MM-DD)', new Date().toISOString().slice(0,10));
+  if(!date) return;
+  await YS.update('project_stages', stageId, {status:'in_progress', planned_date:date});
+  openProjectDetail(projId); renderAll();
+  alert('✓ Marked material dispatch ready for '+date+'. The Installation team will see this project once materials arrive.');
 }
 
 async function startStage(projId, stageId){

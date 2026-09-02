@@ -323,6 +323,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
               <div style="display:flex;gap:14px;flex-wrap:wrap;padding:8px 0;">
                 <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="tm-role-cb" value="sales_head"/> Sales Head</label>
                 <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="tm-role-cb" value="designer"/> Designer</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="tm-role-cb" value="production_head"/> Production Head</label>
                 <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="tm-role-cb" value="site_manager"/> Site Manager</label>
                 <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="tm-role-cb" value="partner"/> Partner</label>
               </div>
@@ -422,6 +423,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           <div style="display:flex;gap:14px;flex-wrap:wrap;padding:6px 0;">
             <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="et-role-cb" value="sales_head"/> Sales Head</label>
             <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="et-role-cb" value="designer"/> Designer</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="et-role-cb" value="production_head"/> Production Head</label>
             <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="et-role-cb" value="site_manager"/> Site Manager</label>
             <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="et-role-cb" value="partner"/> Partner</label>
           </div>
@@ -598,7 +600,7 @@ function openLeadDetail(id){
         <label class="fl">Assign To</label>
         <select id="lm-assign" onchange="quickUpdateAssign('${id}')">
           <option value="">Unassigned</option>
-          ${team.filter(t=>!(t.roles||[]).includes('site_manager') && !(t.roles||[]).includes('partner')).map(t=>`<option value="${t.id}" ${l.assigned_to===t.id?'selected':''}>${t.name} (${(t.roles||[]).join(', ').replace(/_/g,' ')})</option>`).join('')}
+          ${team.filter(t=>!(t.roles||[]).includes('site_manager') && !(t.roles||[]).includes('production_head') && !(t.roles||[]).includes('partner')).map(t=>`<option value="${t.id}" ${l.assigned_to===t.id?'selected':''}>${t.name} (${(t.roles||[]).join(', ').replace(/_/g,' ')})</option>`).join('')}
         </select>
       </div>
       <div>

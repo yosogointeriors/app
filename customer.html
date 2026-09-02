@@ -336,12 +336,15 @@ function renderDesigns(){
 async function signOffDesign(id){
   const noteEl = document.getElementById('signoff-note-'+id);
   const comment = noteEl ? noteEl.value.trim() : '';
+  // Signing off goes straight to the production team — no manual "send"
+  // step needed from the design team once the customer has approved.
   await YS.update('design_files', id, {
     customer_approved: true, approved_at: new Date().toISOString(),
-    customer_comment: comment || null, status: 'customer_approved'
+    customer_comment: comment || null, status: 'sent_to_production',
+    sent_to_production_at: new Date().toISOString()
   });
   renderDesigns();
-  alert('✓ Thank you — your sign-off has been recorded. Our team will proceed with production.');
+  alert('✓ Thank you — your sign-off has been recorded and sent to our production team.');
 }
 
 function renderPayments(){

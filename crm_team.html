@@ -391,12 +391,9 @@ function openLeadDetail(id){
     <div style="margin-bottom:8px;">${designs.map(d=>{
       const isImage = /\.(png|jpe?g|gif|webp)$/i.test(d.file_name||d.file_url||'');
       const statusPill = d.status==='sent_to_production' ? '<span class="pill p-ok">📤 Sent to Production</span>'
-        : d.status==='customer_approved' ? '<span class="pill p-ok">✅ Customer Signed Off</span>'
         : d.status==='verified' ? '<span class="pill p-inf">✓ Verified — awaiting customer sign-off</span>'
         : '<span class="pill p-wrn">Uploaded</span>';
-      const actionBtn = d.status==='uploaded' ? `<button class="btn btn-xs" onclick="verifyDesignFile('${d.id}','${id}')">✓ Verify</button>`
-        : d.status==='customer_approved' ? `<button class="btn btn-c btn-xs" onclick="sendDesignToProduction('${d.id}','${id}')">📤 Send to Production</button>`
-        : '';
+      const actionBtn = d.status==='uploaded' ? `<button class="btn btn-xs" onclick="verifyDesignFile('${d.id}','${id}')">✓ Verify</button>` : '';
       return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
           <div style="display:flex;align-items:center;gap:8px;">
@@ -483,13 +480,9 @@ async function verifyDesignFile(designId, leadId){
   await YS.update('design_files', designId, {status:'verified', verified_at:new Date().toISOString()});
   openLeadDetail(leadId);
 }
-async function sendDesignToProduction(designId, leadId){
-  const d = YS.find('design_files', designId);
-  if(!d || !d.customer_approved){ alert('This document needs the customer\'s sign-off before it can go to production.'); return; }
-  await YS.update('design_files', designId, {status:'sent_to_production', sent_to_production_at:new Date().toISOString()});
-  openLeadDetail(leadId);
-  alert('✓ Sent to Site & Production team.');
-}
+// Note: there's no manual "send to production" step anymore — the moment the
+// customer signs off in their portal, design_files.status jumps straight to
+// 'sent_to_production' (see customer.html's signOffDesign()).
 
 const CHECKLIST_TEMPLATE = [
   ['Foyer/Entrance', ['Shoe Rack Unit','Console Table','Wall Mirror / Decor','False Ceiling & Lighting','Coat / Umbrella Hooks']],
