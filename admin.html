@@ -289,6 +289,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
             </div>
             <div><label class="fl">Rate (₹)</label><input type="number" id="qc-rate" placeholder="0"/></div>
           </div>
+          <div class="fr"><label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;"><input type="checkbox" id="qc-default"/> Include in every new quotation automatically (e.g. standard delivery/consultation charges)</label></div>
           <button class="btn btn-c" onclick="addQuotationCatalogItem()">+ Add Line Item</button>
         </div>
         <div class="adm-card">
@@ -302,7 +303,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           <div id="qc-upload-status" style="font-size:12px;color:var(--mut);margin-top:8px;"></div>
         </div>
         <div class="adm-card" style="padding:0;overflow-x:auto;">
-          <table><thead><tr><th>Category</th><th>Item</th><th>Material</th><th>Unit</th><th>Rate</th><th>Status</th><th></th></tr></thead><tbody id="qcalc-tbody"></tbody></table>
+          <table><thead><tr><th>Category</th><th>Item</th><th>Material</th><th>Unit</th><th>Rate</th><th>Default?</th><th>Status</th><th></th></tr></thead><tbody id="qcalc-tbody"></tbody></table>
         </div>
       </div>
 
@@ -758,13 +759,14 @@ function renderQuotationCatalog(){
       <td>${q.material_spec||'—'}</td>
       <td>${q.unit_type==='sqft'?'Per sqft':'Lump sum'}</td>
       <td>₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''}</td>
+      <td><span class="pill ${q.default_include?'p-inf':'p-no'}" style="cursor:pointer;" onclick="event.stopPropagation();toggleQuotationCatalogDefault('${q.id}')">${q.default_include?'✓ Yes':'No'}</span></td>
       <td><span class="pill ${q.active?'p-ok':'p-no'}">${q.active?'Active':'Inactive'}</span></td>
       <td style="white-space:nowrap;">
         <button class="btn btn-xs" onclick="event.stopPropagation();toggleQuotationCatalogItem('${q.id}')">Toggle</button>
         <button class="btn btn-d btn-xs" onclick="event.stopPropagation();deleteQuotationCatalogItem('${q.id}')">Remove</button>
       </td>
     </tr>
-  `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">No line items yet.</td></tr>`;
+  `).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">No line items yet.</td></tr>`;
 }
 async function addQuotationCatalogItem(){
   const category=document.getElementById('qc-category').value.trim();
@@ -776,9 +778,10 @@ async function addQuotationCatalogItem(){
     material_spec:document.getElementById('qc-material').value.trim(),
     description:document.getElementById('qc-desc').value.trim(),
     unit_type:document.getElementById('qc-unit').value,
-    rate, active:true
+    rate, active:true, default_include:document.getElementById('qc-default').checked
   });
   ['qc-category','qc-name','qc-material','qc-desc','qc-rate'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('qc-default').checked = false;
   renderQuotationCatalog();
 }
 async function toggleQuotationCatalogItem(id){
@@ -786,16 +789,22 @@ async function toggleQuotationCatalogItem(id){
   await YS.update('quotation_catalog', id, {active:!q.active});
   renderQuotationCatalog();
 }
+async function toggleQuotationCatalogDefault(id){
+  const q = YS.find('quotation_catalog', id);
+  await YS.update('quotation_catalog', id, {default_include:!q.default_include});
+  renderQuotationCatalog();
+}
 
 function downloadQCTemplate(){
   const rows = [
-    ['Category','Item Name','Material Spec','Description','Unit Type','Rate'],
-    ['Kitchen','L-Shape Base Unit','Plywood + Acrylic','Acrylic shutters made with HDHMR board, 16mm/9mm plywood BWP grade','sqft',900],
-    ['Kitchen','Tandem Baskets','Soft-Close Channels','Tandems with soft close channels','lump',3000],
-    ['Bedroom','Bed 6ft x 6.5ft','Plywood, Lifting Mechanism','Bed made of 19mm/9mm plywood with lifting mechanism','lump',55000]
+    ['Category','Item Name','Material Spec','Description','Unit Type','Rate','Include In All Quotations'],
+    ['Kitchen','L-Shape Base Unit','Plywood + Acrylic','Acrylic shutters made with HDHMR board, 16mm/9mm plywood BWP grade','sqft',900,'No'],
+    ['Kitchen','Tandem Baskets','Soft-Close Channels','Tandems with soft close channels','lump',3000,'No'],
+    ['Bedroom','Bed 6ft x 6.5ft','Plywood, Lifting Mechanism','Bed made of 19mm/9mm plywood with lifting mechanism','lump',55000,'No'],
+    ['General','Delivery & Logistics','','Standard delivery charge','lump',8000,'Yes']
   ];
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:14},{wch:28},{wch:24},{wch:45},{wch:10},{wch:10}];
+  ws['!cols'] = [{wch:14},{wch:28},{wch:24},{wch:45},{wch:10},{wch:10},{wch:14}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Quotation Items');
   XLSX.writeFile(wb, 'yosogo_quotation_catalog_template.xlsx');
@@ -824,8 +833,10 @@ async function uploadQCExcel(){
       let unit_type = String(r['Unit Type']||r['unit_type']||'sqft').trim().toLowerCase();
       if(unit_type!=='sqft' && unit_type!=='lump') unit_type = 'sqft';
       const rate = Number(r['Rate']||r['rate']||0);
+      const defaultRaw = String(r['Include In All Quotations']||r['include_in_all_quotations']||r['Default']||'').trim().toLowerCase();
+      const default_include = defaultRaw==='yes' || defaultRaw==='true' || defaultRaw==='1';
       if(!category || !item_name || !rate){ skipped++; return; }
-      toInsert.push({category, item_name, material_spec, description, unit_type, rate, active:true});
+      toInsert.push({category, item_name, material_spec, description, unit_type, rate, active:true, default_include});
     });
 
     if(!toInsert.length){ statusEl.textContent = 'No valid rows found — check Category, Item Name and Rate are filled in.'; return; }

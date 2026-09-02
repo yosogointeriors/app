@@ -184,6 +184,7 @@ create table quotation_catalog (
   unit_type text default 'sqft',   -- sqft (rate x length x height) | lump (flat rate, qty = count)
   rate numeric not null,           -- per sqft, or lump-sum amount if unit_type = 'lump'
   active boolean default true,
+  default_include boolean default false, -- auto-added to every new quotation (e.g. standard delivery/consultation charges)
   created_at timestamptz default now()
 );
 
