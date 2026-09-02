@@ -197,10 +197,27 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
     <div class="modal-head"><h3>Build Quotation</h3><button class="modal-close" onclick="closeModal('quote-modal')">×</button></div>
     <div class="modal-body">
       <div id="qitems"></div>
-      <button class="btn btn-sm" onclick="addQItemRow()">+ Add Line Item</button>
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <select id="qc-picker" style="flex:1;"><option value="">+ Add item from catalog…</option></select>
+        <button class="btn btn-sm" onclick="addCatalogQItem()">Add</button>
+        <button class="btn btn-sm" onclick="addCustomQItemRow()">+ Custom Item</button>
+      </div>
       <div class="qtotal">Total: ₹<span id="qtotal-val">0</span></div>
     </div>
     <div class="modal-foot"><button class="btn" onclick="closeModal('quote-modal')">Cancel</button><button class="btn btn-c" onclick="saveQuotation()">Send Quotation to Lead</button></div>
+  </div>
+</div>
+
+<!-- OFFLINE QUOTATION UPLOAD MODAL -->
+<div class="modal-overlay" id="offline-quote-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Upload Offline Quotation</h3><button class="modal-close" onclick="closeModal('offline-quote-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="fr"><label class="fl">Quotation File (PDF, Excel, image)</label><input type="file" id="oq-file" accept=".pdf,.xlsx,.xls,.doc,.docx,.png,.jpg,.jpeg"/></div>
+      <div class="fr"><label class="fl">Total Amount (₹, optional)</label><input type="number" id="oq-total" placeholder="e.g. 1180000"/></div>
+      <div id="oq-progress" style="font-size:12px;color:var(--mut);display:none;">Uploading…</div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('offline-quote-modal')">Cancel</button><button class="btn btn-c" onclick="saveOfflineQuotation()">Upload &amp; Attach to Lead</button></div>
   </div>
 </div>
 
@@ -287,10 +304,9 @@ function openLeadDetail(id){
   CURRENT_LEAD_ID = id;
   const l = YS.find('leads', id);
   const notes = YS.all('lead_notes').filter(n=>n.lead_id===id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  const designs = YS.all('design_files').filter(d=>{
-    const p = YS.all('projects').find(pr=>pr.lead_id===id);
-    return p && d.project_id===p.id;
-  });
+  const proj = YS.all('projects').find(pr=>pr.lead_id===id);
+  const designs = proj ? YS.all('design_files').filter(d=>d.project_id===proj.id) : [];
+  const quotes = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id).sort((a,b)=>b.version-a.version) : [];
   const nextIdx = STATUS_ORDER.indexOf(l.status);
   const nextStatus = STATUS_ORDER[nextIdx+1];
 
@@ -308,9 +324,18 @@ function openLeadDetail(id){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
       ${nextStatus ? `<button class="btn btn-c btn-sm" onclick="advanceStatus('${id}','${nextStatus}')">Move to "${STATUS_LABEL[nextStatus]}" →</button>` : ''}
       ${l.status!=='quotation_sent' && l.status!=='booked' ? `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Build Quotation</button>` : `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Revise Quotation</button>`}
+      <button class="btn btn-sm" onclick="openOfflineQuoteModal('${id}')">📎 Upload Offline Quotation</button>
       <button class="btn btn-sm" onclick="uploadDesign('${id}')">🎨 Upload Design Render</button>
       <button class="btn btn-d btn-sm" onclick="markLost('${id}')">Mark Lost</button>
     </div>
+    ${quotes.length ? `<div class="card-title" style="font-size:13px;margin-bottom:8px;">Quotation History</div>
+    <div style="margin-bottom:16px;">${quotes.map(q=>`<div class="note-item" style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <b>v${q.version}</b> — ${q.source==='offline'?'📎 Offline upload':'🧮 Built in-app'} · ₹${Number(q.total_amount||0).toLocaleString('en-IN')}
+        <div class="note-meta">${new Date(q.created_at).toLocaleString('en-IN')}</div>
+      </div>
+      ${q.source==='offline' && q.file_url ? `<a href="${q.file_url}" target="_blank" class="btn btn-xs">View File</a>` : ''}
+    </div>`).join('')}</div>` : ''}
     <div class="card-title" style="font-size:13px;margin-bottom:8px;">Design Renders</div>
     <div class="gallery">${designs.map(d=>`<div><img src="${d.file_url}"/><div style="font-size:10.5px;margin-top:3px;">${d.room_name}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
     <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Notes &amp; Site Visit Log</div>
@@ -360,26 +385,79 @@ let QITEMS = [];
 function openQuoteBuilder(id){
   CURRENT_LEAD_ID = id;
   const proj = YS.all('projects').find(p=>p.lead_id===id);
-  const existing = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id).sort((a,b)=>b.version-a.version)[0] : null;
-  QITEMS = existing ? JSON.parse(JSON.stringify(existing.items)) : [
-    {item:'Modular Kitchen', category:'kitchen', qty:1, rate:0},
-    {item:'Wardrobe', category:'wardrobe', qty:1, rate:0}
-  ];
+  const existing = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id && q.source!=='offline').sort((a,b)=>b.version-a.version)[0] : null;
+  QITEMS = existing ? JSON.parse(JSON.stringify(existing.items||[])) : [];
+  renderQCPicker();
   renderQItems();
   document.getElementById('quote-modal').classList.add('open');
 }
+function renderQCPicker(){
+  const items = YS.all('quotation_catalog').filter(q=>q.active).sort((a,b)=>a.category.localeCompare(b.category)||a.item_name.localeCompare(b.item_name));
+  const byCategory = {};
+  items.forEach(q=>{ (byCategory[q.category]=byCategory[q.category]||[]).push(q); });
+  const picker = document.getElementById('qc-picker');
+  picker.innerHTML = '<option value="">+ Add item from catalog…</option>' + Object.keys(byCategory).map(cat =>
+    `<optgroup label="${cat}">${byCategory[cat].map(q=>`<option value="${q.id}">${q.item_name}${q.material_spec?' — '+q.material_spec:''} (₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''})</option>`).join('')}</optgroup>`
+  ).join('');
+}
+function addCatalogQItem(){
+  const id = document.getElementById('qc-picker').value;
+  if(!id) return;
+  const q = YS.find('quotation_catalog', id);
+  QITEMS.push({
+    item: q.item_name, category: q.category, material_spec: q.material_spec||'',
+    unit_type: q.unit_type, length: q.unit_type==='sqft'?0:null, height: q.unit_type==='sqft'?0:null,
+    qty: q.unit_type==='lump'?1:0, rate: Number(q.rate), amount: 0
+  });
+  document.getElementById('qc-picker').value = '';
+  renderQItems();
+}
+function addCustomQItemRow(){
+  QITEMS.push({item:'', category:'', material_spec:'', unit_type:'custom', qty:1, rate:0, amount:0});
+  renderQItems();
+}
+function updateQItemDims(i, field, val){
+  QITEMS[i][field] = Number(val)||0;
+  if(QITEMS[i].unit_type==='sqft'){ QITEMS[i].qty = QITEMS[i].length * QITEMS[i].height; }
+  renderQItems();
+}
 function renderQItems(){
-  document.getElementById('qitems').innerHTML = QITEMS.map((it,i)=>`
-    <div class="qitem-row">
-      <input type="text" value="${it.item}" oninput="QITEMS[${i}].item=this.value"/>
-      <input type="text" placeholder="category" value="${it.category||''}" oninput="QITEMS[${i}].category=this.value"/>
-      <input type="number" value="${it.qty}" oninput="QITEMS[${i}].qty=Number(this.value);calcQTotal();" placeholder="Qty"/>
-      <input type="number" value="${it.rate}" oninput="QITEMS[${i}].rate=Number(this.value);calcQTotal();" placeholder="Rate ₹"/>
-      <button class="btn btn-d btn-xs" onclick="QITEMS.splice(${i},1);renderQItems();calcQTotal();">✕</button>
-    </div>`).join('');
+  document.getElementById('qitems').innerHTML = QITEMS.map((it,i)=>{
+    const amount = (Number(it.qty)||0)*(Number(it.rate)||0);
+    it.amount = amount;
+    const header = `<div style="font-size:12.5px;font-weight:600;">${it.item||'(unnamed item)'}${it.material_spec?' — '+it.material_spec:''}</div>`;
+    let fields;
+    if(it.unit_type==='sqft'){
+      fields = `
+        <input type="number" value="${it.length}" placeholder="Length (ft)" oninput="updateQItemDims(${i},'length',this.value)"/>
+        <input type="number" value="${it.height}" placeholder="Height (ft)" oninput="updateQItemDims(${i},'height',this.value)"/>
+        <input type="text" value="${(Number(it.qty)||0).toFixed(1)} sqft" readonly style="background:var(--surf3);"/>
+        <input type="number" value="${it.rate}" placeholder="Rate ₹/sqft" oninput="QITEMS[${i}].rate=Number(this.value);renderQItems();"/>`;
+    } else if(it.unit_type==='lump'){
+      fields = `
+        <input type="text" value="Lump sum" readonly style="background:var(--surf3);"/>
+        <input type="number" value="${it.qty}" placeholder="Qty" oninput="QITEMS[${i}].qty=Number(this.value);renderQItems();"/>
+        <input type="text" value="—" readonly style="background:var(--surf3);"/>
+        <input type="number" value="${it.rate}" placeholder="Rate ₹" oninput="QITEMS[${i}].rate=Number(this.value);renderQItems();"/>`;
+    } else {
+      fields = `
+        <input type="text" value="${it.item}" placeholder="Item name" oninput="QITEMS[${i}].item=this.value;renderQItems();" style="grid-column:span 2;"/>
+        <input type="number" value="${it.qty}" placeholder="Qty" oninput="QITEMS[${i}].qty=Number(this.value);renderQItems();"/>
+        <input type="number" value="${it.rate}" placeholder="Rate ₹" oninput="QITEMS[${i}].rate=Number(this.value);renderQItems();"/>`;
+    }
+    return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:10px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        ${header}
+        <div style="display:flex;align-items:center;gap:10px;">
+          <b style="font-size:13px;">₹${amount.toLocaleString('en-IN')}</b>
+          <button class="btn btn-d btn-xs" onclick="QITEMS.splice(${i},1);renderQItems();">✕</button>
+        </div>
+      </div>
+      <div class="qitem-row" style="margin-bottom:0;">${fields}</div>
+    </div>`;
+  }).join('') || `<div style="color:var(--mut);font-size:12.5px;padding:10px 0;">No items yet — add from the catalog or add a custom item below.</div>`;
   calcQTotal();
 }
-function addQItemRow(){ QITEMS.push({item:'',category:'',qty:1,rate:0}); renderQItems(); }
 function calcQTotal(){
   const total = QITEMS.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.rate)||0),0);
   document.getElementById('qtotal-val').textContent = total.toLocaleString('en-IN');
@@ -391,11 +469,47 @@ async function saveQuotation(){
   const total = QITEMS.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.rate)||0),0);
   const existing = YS.all('quotations').filter(q=>q.project_id===proj.id);
   const items = QITEMS.map(it=>({...it, amount:(Number(it.qty)||0)*(Number(it.rate)||0)}));
-  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, total_amount:total, status:'sent'});
+  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, total_amount:total, status:'sent', source:'builder'});
   await YS.update('projects', proj.id, {total_value: total});
   await YS.update('leads', id, {status:'quotation_sent'});
-  closeModal('quote-modal'); renderAll();
+  closeModal('quote-modal'); renderAll(); openLeadDetail(id);
   alert('✓ Quotation of ₹'+total.toLocaleString('en-IN')+' sent to lead.');
+}
+
+function openOfflineQuoteModal(id){
+  CURRENT_LEAD_ID = id;
+  document.getElementById('oq-file').value = '';
+  document.getElementById('oq-total').value = '';
+  document.getElementById('oq-progress').style.display = 'none';
+  document.getElementById('offline-quote-modal').classList.add('open');
+}
+async function saveOfflineQuotation(){
+  const id = CURRENT_LEAD_ID;
+  const fileInput = document.getElementById('oq-file');
+  const file = fileInput.files[0];
+  if(!file){ alert('Choose a file to upload.'); return; }
+  const totalVal = document.getElementById('oq-total').value;
+  const progressEl = document.getElementById('oq-progress');
+  progressEl.style.display = 'block';
+  try{
+    let proj = YS.all('projects').find(p=>p.lead_id===id);
+    if(!proj) proj = await YS.createProjectFromLead(YS.find('leads',id));
+    const { url, name } = await YS.uploadFile('quotation-files', file);
+    const existing = YS.all('quotations').filter(q=>q.project_id===proj.id);
+    await YS.insert('quotations',{
+      project_id:proj.id, version:existing.length+1, items:null,
+      total_amount: totalVal?Number(totalVal):null,
+      status:'sent', source:'offline', file_url:url, file_name:name
+    });
+    if(totalVal) await YS.update('projects', proj.id, {total_value: Number(totalVal)});
+    await YS.update('leads', id, {status:'quotation_sent'});
+    closeModal('offline-quote-modal'); renderAll(); openLeadDetail(id);
+    alert('✓ Offline quotation uploaded and attached to lead.');
+  }catch(e){
+    alert('Upload failed: '+e.message);
+  }finally{
+    progressEl.style.display = 'none';
+  }
 }
 
 function renderProjects(){

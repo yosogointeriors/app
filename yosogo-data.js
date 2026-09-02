@@ -24,7 +24,7 @@ const YS = (function () {
     'projects', 'project_stages', 'stage_photos',
     'design_files', 'quotations',
     'payment_milestones', 'payments',
-    'catalog_materials', 'payment_settings', 'team_profiles'
+    'catalog_materials', 'payment_settings', 'team_profiles', 'quotation_catalog'
   ];
 
   const DEFAULT_STAGES = [
@@ -104,6 +104,18 @@ const YS = (function () {
     _cache[table] = _cache[table].filter(r => r.id !== id);
   }
 
+  // Uploads a file (e.g. an offline quotation PDF/Excel) to Supabase Storage
+  // and returns its public URL. `bucket` must already exist with an anon
+  // insert policy (see schema.sql — 'quotation-files' is set up by default).
+  async function uploadFile(bucket, file) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
+    const { error } = await supa.storage.from(bucket).upload(path, file);
+    if (error) { console.error('[YOSOGO] file upload failed', error.message); throw error; }
+    const { data } = supa.storage.from(bucket).getPublicUrl(path);
+    return { url: data.publicUrl, name: file.name };
+  }
+
   // Called when a lead is marked "booked" — creates the project, seeds its
   // 9 stages, and asks the Worker to provision the customer's portal login.
   async function createProjectFromLead(lead, extra) {
@@ -164,7 +176,7 @@ const YS = (function () {
 
   return {
     init, ready, onChange, refresh,
-    all, find, insert, update, remove,
+    all, find, insert, update, remove, uploadFile,
     createProjectFromLead, DEFAULT_STAGES,
     login, customerLogin, setCustomerPin,
     createTeamMember, updateTeamMember, resetTeamPassword, toggleTeamMember

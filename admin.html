@@ -168,6 +168,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <div class="adm-nav-item" data-tab="leads" onclick="showTab('leads')"><span class="adm-nav-icon">📥</span> Leads Inbox</div>
       <div class="adm-nav-item" data-tab="projects" onclick="showTab('projects')"><span class="adm-nav-icon">🏗</span> Projects</div>
       <div class="adm-nav-item" data-tab="catalog" onclick="showTab('catalog')"><span class="adm-nav-icon">🎨</span> Catalog</div>
+      <div class="adm-nav-item" data-tab="qcalc" onclick="showTab('qcalc')"><span class="adm-nav-icon">🧮</span> Quotation Calculator</div>
       <div class="adm-nav-item" data-tab="teams" onclick="showTab('teams')"><span class="adm-nav-icon">👥</span> Teams</div>
       <div class="adm-nav-item" data-tab="settings" onclick="showTab('settings')"><span class="adm-nav-icon">⚙️</span> Payment Settings</div>
     </nav>
@@ -267,6 +268,31 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         </div>
         <div class="adm-card" style="padding:0;overflow-x:auto;">
           <table><thead><tr><th>Category</th><th>Name</th><th>Finish</th><th>Price / sqft</th><th></th></tr></thead><tbody id="catalog-tbody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- QUOTATION CALCULATOR -->
+      <div class="admin-tab" id="tab-qcalc">
+        <div class="adm-page-title">Quotation Calculator</div>
+        <div class="adm-page-sub">Standard line items your CRM team picks from when building a quotation — rate auto-fills, they just enter dimensions.</div>
+        <div class="adm-card">
+          <div class="adm-card-title">Add Line Item</div>
+          <div class="form-3col" style="margin-bottom:10px;">
+            <div><label class="fl">Category</label><input type="text" id="qc-category" placeholder="e.g. Kitchen, Wardrobe, Bedroom"/></div>
+            <div><label class="fl">Item Name</label><input type="text" id="qc-name" placeholder="e.g. L-Shape Base Unit"/></div>
+            <div><label class="fl">Material Spec</label><input type="text" id="qc-material" placeholder="e.g. Plywood + Laminate"/></div>
+          </div>
+          <div class="fr"><label class="fl">Description (shown on the quotation)</label><textarea id="qc-desc" placeholder="Optional — full spec text"></textarea></div>
+          <div class="form-3col" style="margin-bottom:12px;">
+            <div><label class="fl">Unit Type</label>
+              <select id="qc-unit"><option value="sqft">Per sqft (Length × Height × Rate)</option><option value="lump">Lump Sum (flat rate)</option></select>
+            </div>
+            <div><label class="fl">Rate (₹)</label><input type="number" id="qc-rate" placeholder="0"/></div>
+          </div>
+          <button class="btn btn-c" onclick="addQuotationCatalogItem()">+ Add Line Item</button>
+        </div>
+        <div class="adm-card" style="padding:0;overflow-x:auto;">
+          <table><thead><tr><th>Category</th><th>Item</th><th>Material</th><th>Unit</th><th>Rate</th><th>Status</th><th></th></tr></thead><tbody id="qcalc-tbody"></tbody></table>
         </div>
       </div>
 
@@ -408,7 +434,7 @@ function logout(){ adminSession=null; document.getElementById('admin-wrap').clas
 function showTab(tab){
   document.querySelectorAll('.adm-nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));
-  const titles={dashboard:'Dashboard',leads:'Leads Inbox',projects:'Projects',catalog:'Material Catalog',teams:'Teams',settings:'Payment Settings'};
+  const titles={dashboard:'Dashboard',leads:'Leads Inbox',projects:'Projects',catalog:'Material Catalog',qcalc:'Quotation Calculator',teams:'Teams',settings:'Payment Settings'};
   document.getElementById('topbar-title').textContent = titles[tab];
   renderAll();
 }
@@ -419,7 +445,7 @@ const STATUS_PILL = {new:'p-inf',contacted:'p-inf',site_visit_scheduled:'p-wrn',
 const SOURCE_LABEL = {facebook_ad:'📘 Facebook Ad',website:'🌐 Website',referral:'🤝 Referral',whatsapp:'💬 WhatsApp',manual:'✍ Manual'};
 
 function renderAll(){
-  renderDashboard(); renderLeads(); renderProjects(); renderCatalog(); renderTeams(); renderSettings();
+  renderDashboard(); renderLeads(); renderProjects(); renderCatalog(); renderQuotationCatalog(); renderTeams(); renderSettings();
 }
 
 function renderDashboard(){
@@ -665,6 +691,47 @@ async function addCatalogItem(){
   renderCatalog();
 }
 async function deleteCatalog(id){ if(confirm('Remove this material?')){ await YS.remove('catalog_materials', id); renderCatalog(); } }
+
+function renderQuotationCatalog(){
+  const items = YS.all('quotation_catalog').sort((a,b)=>a.category.localeCompare(b.category)||a.item_name.localeCompare(b.item_name));
+  document.getElementById('qcalc-tbody').innerHTML = items.map(q=>`
+    <tr>
+      <td>${q.category}</td>
+      <td><b>${q.item_name}</b>${q.description?`<br><span style="color:var(--mut);font-size:11px;">${q.description.slice(0,70)}${q.description.length>70?'…':''}</span>`:''}</td>
+      <td>${q.material_spec||'—'}</td>
+      <td>${q.unit_type==='sqft'?'Per sqft':'Lump sum'}</td>
+      <td>₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''}</td>
+      <td><span class="pill ${q.active?'p-ok':'p-no'}">${q.active?'Active':'Inactive'}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-xs" onclick="event.stopPropagation();toggleQuotationCatalogItem('${q.id}')">Toggle</button>
+        <button class="btn btn-d btn-xs" onclick="event.stopPropagation();deleteQuotationCatalogItem('${q.id}')">Remove</button>
+      </td>
+    </tr>
+  `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">No line items yet.</td></tr>`;
+}
+async function addQuotationCatalogItem(){
+  const category=document.getElementById('qc-category').value.trim();
+  const name=document.getElementById('qc-name').value.trim();
+  const rate=Number(document.getElementById('qc-rate').value);
+  if(!category||!name||!rate){ alert('Category, item name and rate are required.'); return; }
+  await YS.insert('quotation_catalog',{
+    category, item_name:name,
+    material_spec:document.getElementById('qc-material').value.trim(),
+    description:document.getElementById('qc-desc').value.trim(),
+    unit_type:document.getElementById('qc-unit').value,
+    rate, active:true
+  });
+  ['qc-category','qc-name','qc-material','qc-desc','qc-rate'].forEach(id=>document.getElementById(id).value='');
+  renderQuotationCatalog();
+}
+async function toggleQuotationCatalogItem(id){
+  const q = YS.find('quotation_catalog', id);
+  await YS.update('quotation_catalog', id, {active:!q.active});
+  renderQuotationCatalog();
+}
+async function deleteQuotationCatalogItem(id){
+  if(confirm('Remove this line item from the calculator?')){ await YS.remove('quotation_catalog', id); renderQuotationCatalog(); }
+}
 
 function renderTeams(){
   document.getElementById('teams-tbody').innerHTML = YS.all('team_profiles').map(t=>`
