@@ -180,7 +180,7 @@ const YS = (function () {
   // download/print a quotation built with the calculator. Opens in a new
   // tab; the person uses the browser's Print dialog → "Save as PDF" to
   // download it, or prints it directly to send.
-  function renderQuotationHTML(quotation, lead, settings) {
+  function renderQuotationHTML(quotation, lead, settings, isPreview) {
     settings = settings || {};
     const items = quotation.items || [];
     const created = new Date(quotation.created_at);
@@ -254,10 +254,12 @@ const YS = (function () {
   ol, ul { margin: 0; padding-left: 18px; }
   li { margin-bottom: 4px; font-size: 10.5px; }
   .gst-note { margin-top: 14px; font-size: 10.5px; font-style: italic; color: #6E5F84; }
+  .preview-banner { background: #A3352B; color: #fff; text-align: center; padding: 8px; font-size: 12px; font-weight: 700; letter-spacing: .04em; margin-bottom: 10px; border-radius: 6px; }
   @media print { .no-print { display: none; } }
 </style>
 </head>
 <body>
+  ${isPreview ? `<div class="preview-banner">⚠ PREVIEW ONLY — NOT YET SENT TO CUSTOMER</div>` : ''}
   <div class="header">
     <img src="logo.png" alt="Logo"/>
     <div class="title">QUOTATION</div>

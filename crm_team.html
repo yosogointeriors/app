@@ -230,7 +230,12 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <div style="text-align:right;font-size:13px;color:var(--mut);" id="qdiscount-row">Discount (0%): −₹0</div>
       <div class="qtotal">Total: ₹<span id="qtotal-val">0</span></div>
     </div>
-    <div class="modal-foot"><button class="btn" onclick="closeModal('quote-modal')">Cancel</button><button class="btn btn-c" onclick="saveQuotation()">Send Quotation to Lead</button></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('quote-modal')">Cancel</button>
+      <button class="btn" onclick="previewQuotation()">👁 Preview</button>
+      <button class="btn" onclick="saveQuotationDraft()">💾 Save as Draft</button>
+      <button class="btn btn-c" onclick="saveQuotation()">Send Quotation to Lead</button>
+    </div>
   </div>
 </div>
 
@@ -381,7 +386,7 @@ function openLeadDetail(id){
     ${quotes.length ? `<div class="card-title" style="font-size:13px;margin-bottom:8px;">Quotation History</div>
     <div style="margin-bottom:16px;">${quotes.map(q=>`<div class="note-item" style="display:flex;justify-content:space-between;align-items:center;">
       <div>
-        <b>v${q.version}</b> — ${q.source==='offline'?'📎 Offline upload':'🧮 Built in-app'} · ₹${Number(q.total_amount||0).toLocaleString('en-IN')}
+        <b>v${q.version}</b> — ${q.source==='offline'?'📎 Offline upload':'🧮 Built in-app'} · ₹${Number(q.total_amount||0).toLocaleString('en-IN')} ${q.status==='draft'?'<span class="pill p-wrn">Draft</span>':''}
         <div class="note-meta">${new Date(q.created_at).toLocaleString('en-IN')}</div>
       </div>
       ${q.source==='offline'
@@ -770,17 +775,51 @@ function downloadQuotationPDF(quoteId){
   win.document.close();
 }
 
-async function saveQuotation(){
-  const id = CURRENT_LEAD_ID;
-  let proj = YS.all('projects').find(p=>p.lead_id===id);
-  if(!proj) proj = await YS.createProjectFromLead(YS.find('leads',id));
-  const subtotal = QITEMS.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.rate)||0),0);
+function currentQuoteTotals(){
+  const items = QITEMS.map(it=>({...it, amount:(Number(it.qty)||0)*(Number(it.rate)||0)}));
+  const subtotal = items.reduce((s,it)=>s+Number(it.amount||0),0);
   const discountPct = Math.max(0, Math.min(100, Number(document.getElementById('q-discount').value)||0));
   const total = subtotal - (subtotal * discountPct/100);
+  const notes = document.getElementById('q-overall-notes').value.trim();
+  return { items, subtotal, discountPct, total, notes };
+}
+
+function previewQuotation(){
+  if(!QITEMS.length){ alert('Add at least one item before previewing.'); return; }
+  const lead = YS.find('leads', CURRENT_LEAD_ID);
+  const { items, subtotal, discountPct, total, notes } = currentQuoteTotals();
+  const tempQuote = {
+    id: 'preview-' + Date.now().toString(36), version: '—', items,
+    subtotal_amount: subtotal, discount_percent: discountPct, total_amount: total,
+    notes, created_at: new Date().toISOString()
+  };
+  const settings = YS.all('payment_settings')[0] || {};
+  const html = YS.renderQuotationHTML(tempQuote, lead, settings, true);
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+async function saveQuotationDraft(){
+  const id = CURRENT_LEAD_ID;
+  if(!QITEMS.length){ alert('Add at least one item before saving.'); return; }
+  let proj = YS.all('projects').find(p=>p.lead_id===id);
+  if(!proj) proj = await YS.createProjectFromLead(YS.find('leads',id));
+  const { items, subtotal, discountPct, total, notes } = currentQuoteTotals();
   const existing = YS.all('quotations').filter(q=>q.project_id===proj.id);
-  const items = QITEMS.map(it=>({...it, amount:(Number(it.qty)||0)*(Number(it.rate)||0)}));
-  const overallNotes = document.getElementById('q-overall-notes').value.trim();
-  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, subtotal_amount:subtotal, discount_percent:discountPct, total_amount:total, notes:overallNotes||null, status:'sent', source:'builder'});
+  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, subtotal_amount:subtotal, discount_percent:discountPct, total_amount:total, notes:notes||null, status:'draft', source:'builder'});
+  closeModal('quote-modal'); renderAll(); openLeadDetail(id);
+  alert('✓ Saved as draft — nothing sent to the lead yet. Open "Build/Revise Quotation" again anytime to continue.');
+}
+
+async function saveQuotation(){
+  const id = CURRENT_LEAD_ID;
+  if(!QITEMS.length){ alert('Add at least one item before sending.'); return; }
+  let proj = YS.all('projects').find(p=>p.lead_id===id);
+  if(!proj) proj = await YS.createProjectFromLead(YS.find('leads',id));
+  const { items, subtotal, discountPct, total, notes } = currentQuoteTotals();
+  const existing = YS.all('quotations').filter(q=>q.project_id===proj.id);
+  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, subtotal_amount:subtotal, discount_percent:discountPct, total_amount:total, notes:notes||null, status:'sent', source:'builder'});
   await YS.update('projects', proj.id, {total_value: total});
   await YS.update('leads', id, {status:'quotation_sent'});
   closeModal('quote-modal'); renderAll(); openLeadDetail(id);
