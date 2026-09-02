@@ -332,6 +332,11 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         <div class="fr"><label class="fl">Source</label>
           <select id="al-source"><option value="manual">Manual / Walk-in</option><option value="website">Website</option><option value="referral">Referral</option><option value="whatsapp">WhatsApp</option></select>
         </div>
+        <div class="fr"><label class="fl">Job Title</label><input type="text" id="al-job" placeholder="Optional"/></div>
+        <div class="fr"><label class="fl">Exact Location</label><input type="text" id="al-exact-loc" placeholder="Optional — locality, landmark, pincode…"/></div>
+        <div class="fr"><label class="fl">Site Ready?</label>
+          <select id="al-site-ready"><option value="">Unknown</option><option value="yes">Yes</option><option value="no">No</option></select>
+        </div>
       </div>
     </div>
     <div class="modal-foot"><button class="btn" onclick="closeModal('add-lead-modal')">Cancel</button><button class="btn btn-c" onclick="saveNewLead()">Add Lead</button></div>
@@ -448,7 +453,7 @@ function renderLeads(){
       <td>${l.city||'—'}</td>
       <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
       <td>${assignee?assignee.name:'<span style="color:var(--hnt);">Unassigned</span>'}</td>
-      <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span></td>
+      <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span>${l.site_ready===true?' <span class="pill p-ok" title="Site ready for design & installation">✓ Ready</span>':l.site_ready===false?' <span class="pill p-wrn" title="Site not ready yet">Not Ready</span>':''}</td>
       <td style="color:var(--mut);font-size:11.5px;">${new Date(l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px;">No leads match these filters.</td></tr>`;
@@ -459,11 +464,15 @@ async function saveNewLead(){
   const name=document.getElementById('al-name').value.trim();
   const phone=document.getElementById('al-phone').value.trim();
   if(!name||!phone){ alert('Name and phone are required.'); return; }
+  const siteReadyVal = document.getElementById('al-site-ready').value;
   await YS.insert('leads',{
     name, phone, email:document.getElementById('al-email').value.trim(),
     city:document.getElementById('al-city').value.trim(),
     project_type:document.getElementById('al-ptype').value,
     source:document.getElementById('al-source').value,
+    job_title:document.getElementById('al-job').value.trim(),
+    exact_location:document.getElementById('al-exact-loc').value.trim(),
+    site_ready: siteReadyVal==='' ? null : siteReadyVal==='yes',
     status:'new', assigned_to:null
   });
   closeModal('add-lead-modal'); renderAll(); showTab('leads');
@@ -479,8 +488,11 @@ function openLeadDetail(id){
     <div class="form-2col" style="margin-bottom:16px;">
       <div><span class="fl">Phone</span>${l.phone}</div>
       <div><span class="fl">Email</span>${l.email||'—'}</div>
-      <div><span class="fl">Source</span>${SOURCE_LABEL[l.source]||l.source}${l.fb_campaign_name?' · '+l.fb_campaign_name:''}</div>
+      <div><span class="fl">Source</span>${SOURCE_LABEL[l.source]||l.source}${l.fb_campaign_name?' · '+l.fb_campaign_name:''}${l.platform?' · '+l.platform.toUpperCase():''}</div>
       <div><span class="fl">Project</span>${(l.project_type||'').replace('_',' + ')} ${l.bhk?'· '+l.bhk:''} ${l.budget_range?'· ₹'+l.budget_range:''}</div>
+      <div><span class="fl">Job Title</span>${l.job_title||'—'}</div>
+      <div><span class="fl">Exact Location</span>${l.exact_location||'—'}</div>
+      <div><span class="fl">Site Ready</span>${l.site_ready===true?'<span class="pill p-ok">✓ Yes</span>':l.site_ready===false?'<span class="pill p-wrn">Not yet</span>':'—'}</div>
     </div>
     <div class="form-2col" style="margin-bottom:16px;">
       <div>

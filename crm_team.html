@@ -277,7 +277,7 @@ function renderPipeline(){
       <td><b>${l.name}</b><br><span style="color:var(--mut);font-size:11.5px;">${l.phone}</span></td>
       <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
       <td>${l.source==='facebook_ad'?'📘 FB Ad':l.source}</td>
-      <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span></td>
+      <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span>${l.site_ready===true?' <span class="pill p-ok">✓ Ready</span>':''}</td>
       <td style="color:var(--mut);font-size:11.5px;">${new Date(l.updated_at||l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
     </tr>
   `).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:30px;">No leads assigned to you yet.</td></tr>`;
@@ -301,6 +301,9 @@ function openLeadDetail(id){
       <div><span class="fl">Email</span>${l.email||'—'}</div>
       <div><span class="fl">Project</span>${(l.project_type||'').replace('_',' + ')} ${l.bhk?'· '+l.bhk:''}</div>
       <div><span class="fl">Budget</span>${l.budget_range?'₹'+l.budget_range:'—'}</div>
+      <div><span class="fl">Job Title</span>${l.job_title||'—'}</div>
+      <div><span class="fl">Exact Location</span>${l.exact_location||'—'}</div>
+      <div><span class="fl">Site Ready</span>${l.site_ready===true?'<span class="pill p-ok">✓ Yes</span>':l.site_ready===false?'<span class="pill p-wrn">Not yet</span>':'—'}</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
       ${nextStatus ? `<button class="btn btn-c btn-sm" onclick="advanceStatus('${id}','${nextStatus}')">Move to "${STATUS_LABEL[nextStatus]}" →</button>` : ''}

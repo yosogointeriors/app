@@ -65,6 +65,10 @@ create table leads (
   project_type text,               -- kitchen | wardrobe | full_home | kitchen_wardrobe
   bhk text,                        -- 1BHK/2BHK/3BHK/Villa etc
   budget_range text,
+  site_ready boolean,              -- is the site ready for design & installation
+  job_title text,                  -- lead's stated occupation/role
+  exact_location text,             -- free-text locality from the ad form (city column stays the clean/standard value)
+  platform text,                   -- fb | ig | messenger | audience_network (which surface the ad ran on)
   status text default 'new',
   assigned_to uuid references team_accounts(id),
   lost_reason text,
