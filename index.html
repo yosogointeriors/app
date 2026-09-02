@@ -23,7 +23,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:va
 .hero-title span{color:var(--copper-lt);}
 .hero-sub{font-size:15px;color:rgba(255,255,255,0.62);max-width:520px;margin:0 auto;line-height:1.7;}
 
-.portal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;max-width:1360px;margin:0 auto;padding:48px 32px;}
+.portal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:1360px;margin:0 auto;padding:48px 32px;}
 
 .portal-card{background:var(--surf);border-radius:20px;border:0.5px solid var(--bdr);overflow:hidden;box-shadow:0 4px 24px rgba(36,26,18,0.07);transition:transform .2s,box-shadow .2s;text-decoration:none;display:flex;flex-direction:column;color:inherit;}
 .portal-card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(36,26,18,0.14);}
@@ -146,7 +146,7 @@ footer p{font-size:12px;color:rgba(255,255,255,0.45);}
     </div>
     <div class="pc-body">
       <ul class="pc-features" style="--dot:#a8425a">
-        <li>OTP login with phone number — no password to remember</li>
+        <li>Login with phone number + PIN — no password to remember</li>
         <li>View &amp; approve design renders room by room</li>
         <li>Full payment history &amp; upcoming milestone dues</li>
         <li>Live project timeline across all 9 stages</li>
@@ -157,19 +157,38 @@ footer p{font-size:12px;color:rgba(255,255,255,0.45);}
     </div>
   </a>
 
+  <a href="partner.html" class="portal-card">
+    <div class="pc-header" style="background:linear-gradient(135deg,#3a2a52 0%,#6c4a9c 100%);">
+      <div class="pc-badge">🤝 Partner Access</div>
+      <div class="pc-icon">📊</div>
+      <div class="pc-title">Partner Portal</div>
+      <div class="pc-sub">For referral &amp; business partners — track what you've sent us.</div>
+    </div>
+    <div class="pc-body">
+      <ul class="pc-features" style="--dot:#6c4a9c">
+        <li>See every lead you've referred and its current status</li>
+        <li>Track conversion rate on your referrals</li>
+        <li>View booked projects that came from you</li>
+        <li>Read-only — no editing, just transparency</li>
+        <li>Distinct from assigned designer — a lead can have both</li>
+      </ul>
+      <div class="pc-btn" style="background:#3a2a52;">Open Partner Portal →</div>
+    </div>
+  </a>
+
 </div>
 
 <div class="divider"><div class="divider-line"></div></div>
 
 <div class="info-strip">
-  <div class="is-item"><div class="is-num">4</div><div class="is-lbl">Connected Portals</div></div>
+  <div class="is-item"><div class="is-num">5</div><div class="is-lbl">Connected Portals</div></div>
   <div class="is-item"><div class="is-num">9</div><div class="is-lbl">Project Stages Tracked</div></div>
   <div class="is-item"><div class="is-num">13</div><div class="is-lbl">Supabase Tables</div></div>
   <div class="is-item"><div class="is-num">1</div><div class="is-lbl">Source of Truth</div></div>
 </div>
 
 <footer>
-  <p>© 2026 YOSOGO Interiors Pvt Ltd. All rights reserved. · Admin · CRM &amp; Design · Site &amp; Production · Customer Portal</p>
+  <p>© 2026 YOSOGO Interiors Pvt Ltd. All rights reserved. · Admin · CRM &amp; Design · Site &amp; Production · Customer · Partner</p>
 </footer>
 
 </body>

@@ -71,6 +71,7 @@ create table leads (
   platform text,                   -- fb | ig | messenger | audience_network (which surface the ad ran on)
   status text default 'new',
   assigned_to uuid references team_accounts(id),
+  partner_id uuid references team_accounts(id),  -- referring/business partner (distinct from assigned designer)
   lost_reason text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -95,6 +96,7 @@ create table projects (
   address text,
   designer_id uuid references team_accounts(id),
   site_manager_id uuid references team_accounts(id),
+  partner_id uuid references team_accounts(id),  -- carried over from the lead's referring partner
   total_value numeric default 0,
   current_stage_order int default 1,
   status text default 'active',    -- active | on_hold | completed | cancelled

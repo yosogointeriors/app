@@ -116,6 +116,7 @@ const YS = (function () {
       address: '',
       designer_id: lead.assigned_to || null,
       site_manager_id: null,
+      partner_id: lead.partner_id || null,
       total_value: 0,
       current_stage_order: 1,
       status: 'active',

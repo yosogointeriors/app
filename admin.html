@@ -282,7 +282,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
             <div><label class="fl">Phone</label><input type="text" id="tm-phone"/></div>
           </div>
           <div class="form-2col" style="margin-bottom:12px;">
-            <div><label class="fl">Role</label><select id="tm-role"><option value="sales_head">Sales Head</option><option value="designer">Designer</option><option value="site_manager">Site Manager</option></select></div>
+            <div><label class="fl">Role</label><select id="tm-role"><option value="sales_head">Sales Head</option><option value="designer">Designer</option><option value="site_manager">Site Manager</option><option value="partner">Partner</option></select></div>
             <div><label class="fl">City / Region</label><input type="text" id="tm-city" placeholder="e.g. Chennai"/></div>
           </div>
           <button class="btn btn-c" onclick="addTeamMember()">+ Add Team Member</button>
@@ -447,12 +447,13 @@ function renderLeads(){
   const team = YS.all('team_profiles');
   document.getElementById('leads-tbody').innerHTML = leads.map(l=>{
     const assignee = team.find(t=>t.id===l.assigned_to);
+    const partner = team.find(t=>t.id===l.partner_id);
     return `<tr onclick="openLeadDetail('${l.id}')">
       <td><b>${l.name}</b><br><span style="color:var(--mut);font-size:11.5px;">${l.phone}</span></td>
       <td>${SOURCE_LABEL[l.source]||l.source}${l.fb_campaign_name?`<br><span style="color:var(--hnt);font-size:10.5px;">${l.fb_campaign_name}</span>`:''}</td>
       <td>${l.city||'—'}</td>
       <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
-      <td>${assignee?assignee.name:'<span style="color:var(--hnt);">Unassigned</span>'}</td>
+      <td>${assignee?assignee.name:'<span style="color:var(--hnt);">Unassigned</span>'}${partner?`<br><span style="color:var(--hnt);font-size:10.5px;">via ${partner.name}</span>`:''}</td>
       <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span>${l.site_ready===true?' <span class="pill p-ok" title="Site ready for design & installation">✓ Ready</span>':l.site_ready===false?' <span class="pill p-wrn" title="Site not ready yet">Not Ready</span>':''}</td>
       <td style="color:var(--mut);font-size:11.5px;">${new Date(l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
     </tr>`;
@@ -494,9 +495,7 @@ function openLeadDetail(id){
       <div><span class="fl">Exact Location</span>${l.exact_location||'—'}</div>
       <div><span class="fl">Site Ready</span>${l.site_ready===true?'<span class="pill p-ok">✓ Yes</span>':l.site_ready===false?'<span class="pill p-wrn">Not yet</span>':'—'}</div>
     </div>
-    <div class="form-2col" style="margin-bottom:16px;">
-      <div>
-        <label class="fl">Status</label>
+    <div class="form-3col" style="margin-bottom:16px;">
         <select id="lm-status" onchange="quickUpdateStatus('${id}')">
           ${Object.keys(STATUS_LABEL).map(k=>`<option value="${k}" ${l.status===k?'selected':''}>${STATUS_LABEL[k]}</option>`).join('')}
         </select>
@@ -505,7 +504,14 @@ function openLeadDetail(id){
         <label class="fl">Assign To</label>
         <select id="lm-assign" onchange="quickUpdateAssign('${id}')">
           <option value="">Unassigned</option>
-          ${team.filter(t=>t.role!=='site_manager').map(t=>`<option value="${t.id}" ${l.assigned_to===t.id?'selected':''}>${t.name} (${t.role.replace('_',' ')})</option>`).join('')}
+          ${team.filter(t=>t.role!=='site_manager' && t.role!=='partner').map(t=>`<option value="${t.id}" ${l.assigned_to===t.id?'selected':''}>${t.name} (${t.role.replace('_',' ')})</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="fl">Referring Partner</label>
+        <select id="lm-partner" onchange="quickUpdatePartner('${id}')">
+          <option value="">None</option>
+          ${team.filter(t=>t.role==='partner').map(t=>`<option value="${t.id}" ${l.partner_id===t.id?'selected':''}>${t.name}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -530,6 +536,11 @@ async function quickUpdateStatus(id){
 async function quickUpdateAssign(id){
   const v = document.getElementById('lm-assign').value || null;
   await YS.update('leads', id, {assigned_to:v});
+  renderAll();
+}
+async function quickUpdatePartner(id){
+  const v = document.getElementById('lm-partner').value || null;
+  await YS.update('leads', id, {partner_id:v});
   renderAll();
 }
 async function addLeadNote(id){
