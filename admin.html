@@ -352,6 +352,27 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   </div>
 </div>
 
+<!-- EDIT TEAM MEMBER MODAL -->
+<div class="modal-overlay" id="edit-team-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Edit Team Member</h3><button class="modal-close" onclick="closeModal('edit-team-modal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="et-id"/>
+      <div class="form-2col">
+        <div class="fr"><label class="fl">Name</label><input type="text" id="et-name"/></div>
+        <div class="fr"><label class="fl">Email</label><input type="email" id="et-email"/></div>
+        <div class="fr"><label class="fl">Phone</label><input type="text" id="et-phone"/></div>
+        <div class="fr"><label class="fl">City / Region</label><input type="text" id="et-city"/></div>
+        <div class="fr"><label class="fl">Role</label>
+          <select id="et-role"><option value="sales_head">Sales Head</option><option value="designer">Designer</option><option value="site_manager">Site Manager</option><option value="partner">Partner</option></select>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:var(--mut);margin-top:4px;">To change their password, use "Reset Password" from the Teams list instead.</div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('edit-team-modal')">Cancel</button><button class="btn btn-c" onclick="saveEditTeam()">Save Changes</button></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="yosogo-data.js"></script>
@@ -647,10 +668,14 @@ async function deleteCatalog(id){ if(confirm('Remove this material?')){ await YS
 
 function renderTeams(){
   document.getElementById('teams-tbody').innerHTML = YS.all('team_profiles').map(t=>`
-    <tr><td><b>${t.name}</b><br><span style="color:var(--mut);font-size:11px;">${t.email}</span></td>
+    <tr><td><b>${t.name}</b><br><span style="color:var(--mut);font-size:11px;">${t.email||'—'}</span></td>
     <td style="text-transform:capitalize;">${t.role.replace('_',' ')}</td><td>${t.city||'—'}</td><td>${t.phone||'—'}</td>
     <td><span class="pill ${t.active?'p-ok':'p-no'}">${t.active?'Active':'Inactive'}</span></td>
-    <td><button class="btn btn-xs" onclick="event.stopPropagation();toggleTeam('${t.id}')">Toggle</button></td></tr>
+    <td style="white-space:nowrap;">
+      <button class="btn btn-xs" onclick="event.stopPropagation();openEditTeamModal('${t.id}')">Edit</button>
+      <button class="btn btn-xs" onclick="event.stopPropagation();resetTeamMemberPassword('${t.id}')">Reset Password</button>
+      <button class="btn btn-xs" onclick="event.stopPropagation();toggleTeam('${t.id}')">Toggle</button>
+    </td></tr>
   `).join('');
 }
 async function addTeamMember(){
@@ -672,6 +697,43 @@ async function addTeamMember(){
 async function toggleTeam(id){
   try{ await YS.toggleTeamMember(id); await YS.refresh('team_profiles'); renderTeams(); }
   catch(e){ alert('Could not update: '+e.message); }
+}
+
+function openEditTeamModal(id){
+  const t = YS.find('team_profiles', id);
+  if(!t){ alert('Team member not found.'); return; }
+  document.getElementById('et-id').value = t.id;
+  document.getElementById('et-name').value = t.name || '';
+  document.getElementById('et-email').value = t.email || '';
+  document.getElementById('et-phone').value = t.phone || '';
+  document.getElementById('et-city').value = t.city || '';
+  document.getElementById('et-role').value = t.role;
+  document.getElementById('edit-team-modal').classList.add('open');
+}
+async function saveEditTeam(){
+  const id = document.getElementById('et-id').value;
+  const name = document.getElementById('et-name').value.trim();
+  const email = document.getElementById('et-email').value.trim();
+  if(!name||!email){ alert('Name and email are required.'); return; }
+  try{
+    await YS.updateTeamMember({
+      id, name, email,
+      phone: document.getElementById('et-phone').value.trim(),
+      city: document.getElementById('et-city').value.trim(),
+      role: document.getElementById('et-role').value
+    });
+    await YS.refresh('team_profiles');
+    closeModal('edit-team-modal');
+    renderTeams();
+  }catch(e){ alert('Could not save: '+e.message); }
+}
+async function resetTeamMemberPassword(id){
+  const t = YS.find('team_profiles', id);
+  if(!confirm(`Reset password for ${t?t.name:'this team member'}? Their old password will stop working immediately.`)) return;
+  try{
+    const { password } = await YS.resetTeamPassword(id);
+    alert(`🔑 New password for ${t?t.name:''}: ${password}\n\nShare this with them directly — it won't be shown again.`);
+  }catch(e){ alert('Could not reset password: '+e.message); }
 }
 
 function renderSettings(){
