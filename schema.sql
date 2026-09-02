@@ -155,7 +155,9 @@ create table quotations (
   project_id uuid references projects(id) on delete cascade,
   version int default 1,
   items jsonb,                     -- [{item, category, material_spec, length, height, qty, unit_type, rate, amount, note}]
-  total_amount numeric,
+  subtotal_amount numeric,         -- sum of item amounts, before discount
+  discount_percent numeric default 0,
+  total_amount numeric,            -- final amount AFTER discount — this is what shows everywhere as "the quotation value"
   notes text,                      -- overall quotation note (shown on the PDF, separate from per-item notes)
   status text default 'draft',     -- draft | sent | approved | revised
   source text default 'builder',   -- builder | offline  (offline = uploaded file, not built in-app)

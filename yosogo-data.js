@@ -226,7 +226,8 @@ const YS = (function () {
   td.total { font-weight: 700; }
   .desc { color: #7a6f5c; font-size: 10px; margin-top: 2px; }
   .item-note { color: #8A5B0B; font-size: 10px; margin-top: 2px; font-style: italic; }
-  .subtotal td { border: none; border-top: 2px solid #241A12; font-weight: 700; font-size: 13px; padding-top: 8px; }
+  .subtotal td { border: none; padding-top: 8px; font-size: 12px; }
+  .grandtotal td { border: none; border-top: 2px solid #241A12; font-weight: 700; font-size: 13.5px; padding-top: 8px; }
   .section-title { font-weight: 700; margin: 18px 0 6px; font-size: 12.5px; }
   ol, ul { margin: 0; padding-left: 18px; }
   li { margin-bottom: 4px; font-size: 10.5px; }
@@ -254,7 +255,9 @@ const YS = (function () {
     <thead><tr><th>No</th><th>Items</th><th>Category</th><th>Length</th><th>Height</th><th>Qty/sqft</th><th>Rate</th><th>Total</th></tr></thead>
     <tbody>
       ${rows}
-      <tr class="subtotal"><td colspan="7" style="text-align:right;">SUBTOTAL</td><td class="num">₹${Number(quotation.total_amount || 0).toLocaleString('en-IN')}</td></tr>
+      <tr class="subtotal"><td colspan="7" style="text-align:right;">SUBTOTAL</td><td class="num">₹${Number(quotation.subtotal_amount ?? quotation.total_amount ?? 0).toLocaleString('en-IN')}</td></tr>
+      ${quotation.discount_percent ? `<tr class="subtotal"><td colspan="7" style="text-align:right;">DISCOUNT (${quotation.discount_percent}%)</td><td class="num">−₹${(Number(quotation.subtotal_amount||0) - Number(quotation.total_amount||0)).toLocaleString('en-IN')}</td></tr>` : ''}
+      <tr class="grandtotal"><td colspan="7" style="text-align:right;">TOTAL</td><td class="num">₹${Number(quotation.total_amount || 0).toLocaleString('en-IN')}</td></tr>
     </tbody>
   </table>
   ${quotation.notes ? `<div class="section-title">Quotation Notes</div><p style="font-size:11px;white-space:pre-line;margin:0 0 8px;">${quotation.notes}</p>` : ''}
