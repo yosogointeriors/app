@@ -670,9 +670,14 @@ function renderQCPicker(){
   }
   itemSelect.disabled = false;
   const cats = ROOM_CATEGORY_MAP[room] || [room.toLowerCase()];
-  const items = YS.all('quotation_catalog').filter(q=>q.active && cats.includes((q.category||'').toLowerCase())).sort((a,b)=>a.item_name.localeCompare(b.item_name));
+  const all = YS.all('quotation_catalog').filter(q=>q.active);
+  // Items belonging to this room's category, PLUS anything flagged
+  // "include in every quotation" — those are available no matter which
+  // room you're currently adding items under.
+  const items = all.filter(q => cats.includes((q.category||'').toLowerCase()) || q.default_include)
+    .sort((a,b)=> (b.default_include - a.default_include) || a.item_name.localeCompare(b.item_name));
   itemSelect.innerHTML = items.length
-    ? '<option value="">2. Choose an item…</option>' + items.map(q=>`<option value="${q.id}">${q.item_name}${q.material_spec?' — '+q.material_spec:''} (₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''})</option>`).join('')
+    ? '<option value="">2. Choose an item…</option>' + items.map(q=>`<option value="${q.id}">${q.default_include?'⭐ ':''}${q.item_name}${q.material_spec?' — '+q.material_spec:''} (₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''})</option>`).join('')
     : '<option value="">No items yet for this room — add some in Admin</option>';
 }
 function addCatalogQItem(){
@@ -721,9 +726,17 @@ function renderQItems(){
         <input type="number" value="${it.qty}" placeholder="Qty" oninput="QITEMS[${i}].qty=Number(this.value);renderQItems();"/>
         <input type="number" value="${it.rate}" placeholder="Rate ₹" oninput="QITEMS[${i}].rate=Number(this.value);renderQItems();"/>`;
     }
+    const roomPicker = `<select onchange="QITEMS[${i}].category=this.value;renderQItems();" style="width:auto;font-size:11px;padding:3px 6px;">
+      <option value="">Room…</option>
+      ${ROOM_LIST.map(r=>`<option value="${r}" ${it.category===r?'selected':''}>${r}</option>`).join('')}
+      ${it.category && !ROOM_LIST.includes(it.category) ? `<option value="${it.category}" selected>${it.category}</option>` : ''}
+    </select>`;
     return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:10px;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        ${header}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          ${header}
+          <div style="margin-top:4px;display:flex;align-items:center;gap:5px;">🏠 ${roomPicker}</div>
+        </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <b style="font-size:13px;">₹${amount.toLocaleString('en-IN')}</b>
           <button class="btn btn-d btn-xs" onclick="QITEMS.splice(${i},1);renderQItems();">✕</button>
