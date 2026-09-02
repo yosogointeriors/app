@@ -20,7 +20,7 @@ create table team_accounts (
   name text not null,
   email text unique not null,
   password text not null,
-  role text not null,              -- sales_head | designer | site_manager
+  roles text[] not null default '{}',  -- e.g. {sales_head,designer} — a person can hold multiple roles
   city text,                       -- region/city scope, comma-separated for multi
   phone text,
   active boolean default true,
@@ -34,7 +34,7 @@ create table team_profiles (
   id uuid primary key,              -- same id as the matching team_accounts row
   name text not null,
   email text,                       -- shown in Admin's Teams tab; not sensitive like a password
-  role text not null,
+  roles text[] not null default '{}',
   city text,
   phone text,
   active boolean default true
@@ -154,8 +154,9 @@ create table quotations (
   id uuid primary key default gen_random_uuid(),
   project_id uuid references projects(id) on delete cascade,
   version int default 1,
-  items jsonb,                     -- [{item, category, material_spec, length, height, qty, unit_type, rate, amount}]
+  items jsonb,                     -- [{item, category, material_spec, length, height, qty, unit_type, rate, amount, note}]
   total_amount numeric,
+  notes text,                      -- overall quotation note (shown on the PDF, separate from per-item notes)
   status text default 'draft',     -- draft | sent | approved | revised
   source text default 'builder',   -- builder | offline  (offline = uploaded file, not built in-app)
   file_url text,                   -- set when source = 'offline'

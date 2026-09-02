@@ -220,6 +220,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         <button class="btn btn-sm" onclick="addCatalogQItem()">Add</button>
         <button class="btn btn-sm" onclick="addCustomQItemRow()">+ Custom Item</button>
       </div>
+      <div class="fr" style="margin-top:14px;"><label class="fl">Quotation Notes (shown on the PDF, for the whole quotation)</label><textarea id="q-overall-notes" placeholder="e.g. Site visit pending for final measurements; rates valid for 21 days…"></textarea></div>
       <div class="qtotal">Total: ₹<span id="qtotal-val">0</span></div>
     </div>
     <div class="modal-foot"><button class="btn" onclick="closeModal('quote-modal')">Cancel</button><button class="btn btn-c" onclick="saveQuotation()">Send Quotation to Lead</button></div>
@@ -515,11 +516,11 @@ async function saveAndGenerateQuotation(){
       return {
         item: match.item_name, category: match.category, material_spec: r.material || match.material_spec || '',
         unit_type: match.unit_type, length: match.unit_type==='sqft'?0:null, height: match.unit_type==='sqft'?0:null,
-        qty: match.unit_type==='lump' ? (r.qty||1) : 0, rate: Number(match.rate), amount: 0
+        qty: match.unit_type==='lump' ? (r.qty||1) : 0, rate: Number(match.rate), amount: 0, note: r.remarks||''
       };
     }
     // No catalog match — add as a custom line so the designer can price it manually.
-    return { item: r.item, category: r.section, material_spec: r.material||'', unit_type:'custom', qty: r.qty||1, rate: 0, amount: 0 };
+    return { item: r.item, category: r.section, material_spec: r.material||'', unit_type:'custom', qty: r.qty||1, rate: 0, amount: 0, note: r.remarks||'' };
   });
 
   closeModal('checklist-modal');
@@ -540,6 +541,7 @@ function openQuoteBuilder(id){
   const proj = YS.all('projects').find(p=>p.lead_id===id);
   const existing = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id && q.source!=='offline').sort((a,b)=>b.version-a.version)[0] : null;
   QITEMS = existing ? JSON.parse(JSON.stringify(existing.items||[])) : [];
+  document.getElementById('q-overall-notes').value = existing ? (existing.notes||'') : '';
   renderQCPicker();
   renderQItems();
   document.getElementById('quote-modal').classList.add('open');
@@ -606,7 +608,8 @@ function renderQItems(){
           <button class="btn btn-d btn-xs" onclick="QITEMS.splice(${i},1);renderQItems();">✕</button>
         </div>
       </div>
-      <div class="qitem-row" style="margin-bottom:0;">${fields}</div>
+      <div class="qitem-row" style="margin-bottom:8px;">${fields}</div>
+      <input type="text" value="${(it.note||'').replace(/"/g,'&quot;')}" placeholder="Note for this item (optional) — e.g. subject to site measurement" oninput="QITEMS[${i}].note=this.value;" style="width:100%;font-size:12px;"/>
     </div>`;
   }).join('') || `<div style="color:var(--mut);font-size:12.5px;padding:10px 0;">No items yet — add from the catalog or add a custom item below.</div>`;
   calcQTotal();
@@ -635,7 +638,8 @@ async function saveQuotation(){
   const total = QITEMS.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.rate)||0),0);
   const existing = YS.all('quotations').filter(q=>q.project_id===proj.id);
   const items = QITEMS.map(it=>({...it, amount:(Number(it.qty)||0)*(Number(it.rate)||0)}));
-  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, total_amount:total, status:'sent', source:'builder'});
+  const overallNotes = document.getElementById('q-overall-notes').value.trim();
+  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, total_amount:total, notes:overallNotes||null, status:'sent', source:'builder'});
   await YS.update('projects', proj.id, {total_value: total});
   await YS.update('leads', id, {status:'quotation_sent'});
   closeModal('quote-modal'); renderAll(); openLeadDetail(id);

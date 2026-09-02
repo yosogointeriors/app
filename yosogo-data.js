@@ -191,7 +191,7 @@ const YS = (function () {
     const rows = items.map((it, i) => `
       <tr>
         <td class="no">${i + 1}</td>
-        <td class="item"><b>${it.item || ''}</b>${it.material_spec ? `<div class="desc">${it.material_spec}</div>` : ''}</td>
+        <td class="item"><b>${it.item || ''}</b>${it.material_spec ? `<div class="desc">${it.material_spec}</div>` : ''}${it.note ? `<div class="item-note">Note: ${it.note}</div>` : ''}</td>
         <td class="cat">${(it.category || '').toUpperCase()}</td>
         <td class="num">${it.length || ''}</td>
         <td class="num">${it.height || ''}</td>
@@ -225,6 +225,7 @@ const YS = (function () {
   td.num { text-align: right; white-space: nowrap; }
   td.total { font-weight: 700; }
   .desc { color: #7a6f5c; font-size: 10px; margin-top: 2px; }
+  .item-note { color: #8A5B0B; font-size: 10px; margin-top: 2px; font-style: italic; }
   .subtotal td { border: none; border-top: 2px solid #241A12; font-weight: 700; font-size: 13px; padding-top: 8px; }
   .section-title { font-weight: 700; margin: 18px 0 6px; font-size: 12.5px; }
   ol, ul { margin: 0; padding-left: 18px; }
@@ -256,6 +257,7 @@ const YS = (function () {
       <tr class="subtotal"><td colspan="7" style="text-align:right;">SUBTOTAL</td><td class="num">₹${Number(quotation.total_amount || 0).toLocaleString('en-IN')}</td></tr>
     </tbody>
   </table>
+  ${quotation.notes ? `<div class="section-title">Quotation Notes</div><p style="font-size:11px;white-space:pre-line;margin:0 0 8px;">${quotation.notes}</p>` : ''}
   ${termsList ? `<div class="section-title">Terms &amp; Conditions</div><ol>${termsList}</ol>` : ''}
   ${paymentList ? `<div class="section-title">Payment Terms</div><ul>${paymentList}</ul>` : ''}
   <div class="gst-note">Note: All rates are exclusive of GST @ 18%, which will be charged extra as applicable.</div>

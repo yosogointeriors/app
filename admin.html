@@ -291,6 +291,16 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           </div>
           <button class="btn btn-c" onclick="addQuotationCatalogItem()">+ Add Line Item</button>
         </div>
+        <div class="adm-card">
+          <div class="adm-card-title">Bulk Import from Excel</div>
+          <div class="adm-card-sub">Columns: Category, Item Name, Material Spec, Description, Unit Type (sqft or lump), Rate. Download the template, fill it in, then upload — new rows are added, existing items are untouched.</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <button class="btn btn-sm" onclick="downloadQCTemplate()">📥 Download Excel Template</button>
+            <input type="file" id="qc-excel-file" accept=".xlsx,.xls" style="max-width:280px;"/>
+            <button class="btn btn-c btn-sm" onclick="uploadQCExcel()">📤 Upload &amp; Add Items</button>
+          </div>
+          <div id="qc-upload-status" style="font-size:12px;color:var(--mut);margin-top:8px;"></div>
+        </div>
         <div class="adm-card" style="padding:0;overflow-x:auto;">
           <table><thead><tr><th>Category</th><th>Item</th><th>Material</th><th>Unit</th><th>Rate</th><th>Status</th><th></th></tr></thead><tbody id="qcalc-tbody"></tbody></table>
         </div>
@@ -424,6 +434,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="yosogo-data.js"></script>
 <script>
@@ -764,6 +775,59 @@ async function toggleQuotationCatalogItem(id){
   const q = YS.find('quotation_catalog', id);
   await YS.update('quotation_catalog', id, {active:!q.active});
   renderQuotationCatalog();
+}
+
+function downloadQCTemplate(){
+  const rows = [
+    ['Category','Item Name','Material Spec','Description','Unit Type','Rate'],
+    ['Kitchen','L-Shape Base Unit','Plywood + Acrylic','Acrylic shutters made with HDHMR board, 16mm/9mm plywood BWP grade','sqft',900],
+    ['Kitchen','Tandem Baskets','Soft-Close Channels','Tandems with soft close channels','lump',3000],
+    ['Bedroom','Bed 6ft x 6.5ft','Plywood, Lifting Mechanism','Bed made of 19mm/9mm plywood with lifting mechanism','lump',55000]
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:14},{wch:28},{wch:24},{wch:45},{wch:10},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Quotation Items');
+  XLSX.writeFile(wb, 'yosogo_quotation_catalog_template.xlsx');
+}
+
+async function uploadQCExcel(){
+  const fileInput = document.getElementById('qc-excel-file');
+  const file = fileInput.files[0];
+  const statusEl = document.getElementById('qc-upload-status');
+  if(!file){ alert('Choose an Excel file first.'); return; }
+  statusEl.textContent = 'Reading file…';
+  try{
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+
+    let added = 0, skipped = 0;
+    const toInsert = [];
+    rows.forEach(r=>{
+      // Accept a few header spellings so a slightly-edited template still works.
+      const category = String(r['Category']||r['category']||'').trim();
+      const item_name = String(r['Item Name']||r['item_name']||r['Item']||'').trim();
+      const material_spec = String(r['Material Spec']||r['material_spec']||'').trim();
+      const description = String(r['Description']||r['description']||'').trim();
+      let unit_type = String(r['Unit Type']||r['unit_type']||'sqft').trim().toLowerCase();
+      if(unit_type!=='sqft' && unit_type!=='lump') unit_type = 'sqft';
+      const rate = Number(r['Rate']||r['rate']||0);
+      if(!category || !item_name || !rate){ skipped++; return; }
+      toInsert.push({category, item_name, material_spec, description, unit_type, rate, active:true});
+    });
+
+    if(!toInsert.length){ statusEl.textContent = 'No valid rows found — check Category, Item Name and Rate are filled in.'; return; }
+    statusEl.textContent = `Uploading ${toInsert.length} items…`;
+    await Promise.all(toInsert.map(row=>YS.insert('quotation_catalog', row)));
+    added = toInsert.length;
+    statusEl.textContent = `✓ Added ${added} item(s)${skipped?`, skipped ${skipped} row(s) missing required fields`:''}.`;
+    fileInput.value = '';
+    renderQuotationCatalog();
+  }catch(e){
+    statusEl.textContent = 'Upload failed: '+e.message;
+  }
 }
 async function deleteQuotationCatalogItem(id){
   if(confirm('Remove this line item from the calculator?')){ await YS.remove('quotation_catalog', id); renderQuotationCatalog(); }
