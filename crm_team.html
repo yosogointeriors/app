@@ -192,6 +192,19 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 </div>
 
 <!-- QUOTATION MODAL -->
+<!-- CLIENT REQUIREMENT CHECKLIST MODAL -->
+<div class="modal-overlay" id="checklist-modal">
+  <div class="modal-box wide">
+    <div class="modal-head"><h3 id="cl-title">Client Requirement Checklist</h3><button class="modal-close" onclick="closeModal('checklist-modal')">×</button></div>
+    <div class="modal-body" id="checklist-body"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('checklist-modal')">Close</button>
+      <button class="btn" onclick="saveChecklist()">💾 Save Checklist</button>
+      <button class="btn btn-c" onclick="saveAndGenerateQuotation()">💾 Save &amp; Generate Quotation →</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="quote-modal">
   <div class="modal-box wide">
     <div class="modal-head"><h3>Build Quotation</h3><button class="modal-close" onclick="closeModal('quote-modal')">×</button></div>
@@ -327,9 +340,11 @@ function openLeadDetail(id){
       <div><span class="fl">Job Title</span>${l.job_title||'—'}</div>
       <div><span class="fl">Exact Location</span>${l.exact_location||'—'}</div>
       <div><span class="fl">Site Ready</span>${l.site_ready===true?'<span class="pill p-ok">✓ Yes</span>':l.site_ready===false?'<span class="pill p-wrn">Not yet</span>':'—'}</div>
+      <div><span class="fl">Checklist</span>${(()=>{ const items=YS.all('client_checklist_items').filter(c=>c.lead_id===id); const req=items.filter(c=>c.required===true).length; return items.length ? `<span class="pill p-inf">${req} items required</span>` : '<span style="color:var(--hnt);">Not started</span>'; })()}</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
       ${nextStatus ? `<button class="btn btn-c btn-sm" onclick="advanceStatus('${id}','${nextStatus}')">Move to "${STATUS_LABEL[nextStatus]}" →</button>` : ''}
+      <button class="btn btn-sm" onclick="openChecklist('${id}')">📋 Client Checklist</button>
       ${l.status!=='quotation_sent' && l.status!=='booked' ? `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Build Quotation</button>` : `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Revise Quotation</button>`}
       <button class="btn btn-sm" onclick="openOfflineQuoteModal('${id}')">📎 Upload Offline Quotation</button>
       <button class="btn btn-sm" onclick="uploadDesign('${id}')">🎨 Upload Design Render</button>
@@ -388,6 +403,129 @@ async function uploadDesign(id){
   await YS.insert('design_files',{project_id:proj.id, room_name:room, file_url:url, version:1, customer_approved:false});
   if(YS.find('leads',id).status==='site_visit_done' || YS.find('leads',id).status==='contacted') await YS.update('leads', id, {status:'design_presented'});
   renderAll(); openLeadDetail(id);
+}
+
+const CHECKLIST_TEMPLATE = [
+  ['Foyer/Entrance', ['Shoe Rack Unit','Console Table','Wall Mirror / Decor','False Ceiling & Lighting','Coat / Umbrella Hooks']],
+  ['Living Room', ['TV Unit / Entertainment Unit','Sofa Set','Center / Coffee Table','Side Table(s)','Console / Display Unit','Wall Panelling / Accent Wall','False Ceiling','Cove / Ambient Lighting','Curtains / Blinds','Bar Unit','Bookshelf / Display Shelves','Wall Art / Decor']],
+  ['Dining', ['Dining Table & Chairs','Crockery / Cutlery Storage Nearby','Pendant Lighting / False Ceiling','Wall Panelling','Curtains']],
+  ['Kitchen', ['Modular Base Units','Modular Wall Units','Tall / Pantry Unit','Chimney & Hob','Sink & Faucet','Countertop (Granite / Quartz)','Tile Cladding / Backsplash','Appliance Cabinets (Microwave/Oven/RO)','Cutlery & Crockery Organizers','Waste / Bin Management Unit','Breakfast Counter','False Ceiling & Task Lighting']],
+  ['Crockery Unit', ['Crockery Cabinet with Glass Shutters','Open Display Shelves','Cutlery Drawers','Display / Accent Lighting','Wine / Bar Storage']],
+  ['Pooja Unit', ['Pooja Mandir (Wall-mounted / Floor-standing)','Wooden / Marble Finish','Sliding Door / Shutter','Bell & Hooks','Diya / LED Lighting','Ventilation / Jaali Work','Storage for Pooja Items']],
+  ['Master Bedroom', ['Bed with Headboard / Upholstery','Wardrobe (Sliding / Openable)','Dressing Unit with Mirror','Side Table(s)','TV Unit','Study / Work Desk','False Ceiling & Cove Lighting','Wall Panelling / Headboard Wall','Curtains / Blinds']],
+  ['Bedroom 2', ['Bed with Headboard','Wardrobe','Study Table & Chair','False Ceiling & Lighting','Curtains / Blinds']],
+  ['Bedroom 3 / Kids Room', ['Bed with Headboard','Wardrobe','Study Table & Chair','Toy / Open Storage','False Ceiling & Lighting','Curtains / Blinds']],
+  ['Study/Home Office', ['Study Table & Chair','Bookshelf / Storage Unit','False Ceiling & Task Lighting']],
+  ['Bathroom', ['Vanity Unit with Counter','Mirror with Light','Shower Partition / Cubicle','Waterproof False Ceiling','Tile Cladding','Exhaust Fan','Geyser Provision','Storage Cabinet','Sanitaryware (WC, Basin)']],
+  ['Balcony/Utility', ['Washing Machine Cabinet','Utility Shelf / Storage','Outdoor Flooring','Railing / Safety Grill','Clothes Drying Unit']]
+];
+let CHECKLIST_LEAD_ID = null;
+
+function openChecklist(leadId){
+  CHECKLIST_LEAD_ID = leadId;
+  const lead = YS.find('leads', leadId);
+  document.getElementById('cl-title').textContent = 'Client Requirement Checklist — ' + lead.name;
+  renderChecklist();
+  document.getElementById('checklist-modal').classList.add('open');
+}
+function renderChecklist(){
+  const existing = YS.all('client_checklist_items').filter(c=>c.lead_id===CHECKLIST_LEAD_ID);
+  const find = (section,item) => existing.find(c=>c.section===section && c.item===item);
+  document.getElementById('checklist-body').innerHTML = CHECKLIST_TEMPLATE.map(([section, items])=>{
+    const rows = items.map(item=>{
+      const c = find(section,item) || {};
+      const reqVal = c.required===true?'yes':c.required===false?'no':'';
+      return `<tr data-section="${section}" data-item="${item}">
+        <td style="font-size:12px;">${item}</td>
+        <td><select class="cl-required" onchange="updateSectionCount('${section}')" style="width:auto;">
+          <option value="" ${reqVal===''?'selected':''}>—</option>
+          <option value="yes" ${reqVal==='yes'?'selected':''}>✓ Yes</option>
+          <option value="no" ${reqVal==='no'?'selected':''}>✗ No</option>
+        </select></td>
+        <td><input type="number" class="cl-qty" value="${c.qty||''}" style="width:70px;"/></td>
+        <td><input type="text" class="cl-material" value="${c.material||''}" placeholder="Material/brand" style="width:140px;"/></td>
+        <td><input type="text" class="cl-remarks" value="${c.remarks||''}" placeholder="Remarks" style="width:100%;"/></td>
+      </tr>`;
+    }).join('');
+    const reqCount = items.filter(item=>{ const c=find(section,item); return c && c.required===true; }).length;
+    return `<div style="margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <b style="font-size:13.5px;">${section}</b>
+        <span class="pill p-inf" id="count-${section.replace(/[^a-zA-Z0-9]/g,'')}">${reqCount} / ${items.length} required</span>
+      </div>
+      <table style="width:100%;"><thead><tr><th style="width:26%;">Item</th><th style="width:80px;">Required?</th><th style="width:80px;">Qty</th><th style="width:150px;">Material/Brand</th><th>Remarks</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </div>`;
+  }).join('');
+}
+function updateSectionCount(section){
+  const rows = document.querySelectorAll(`#checklist-body tr[data-section="${CSS.escape(section)}"]`);
+  let count = 0;
+  rows.forEach(r=>{ if(r.querySelector('.cl-required').value==='yes') count++; });
+  const el = document.getElementById('count-'+section.replace(/[^a-zA-Z0-9]/g,''));
+  if(el) el.textContent = `${count} / ${rows.length} required`;
+}
+function readChecklistForm(){
+  const rows = document.querySelectorAll('#checklist-body tr[data-section]');
+  const out = [];
+  rows.forEach(r=>{
+    const section = r.dataset.section, item = r.dataset.item;
+    const reqSel = r.querySelector('.cl-required').value;
+    const qty = r.querySelector('.cl-qty').value;
+    const material = r.querySelector('.cl-material').value.trim();
+    const remarks = r.querySelector('.cl-remarks').value.trim();
+    if(reqSel==='' && !qty && !material && !remarks) return; // skip fully blank rows
+    out.push({
+      lead_id: CHECKLIST_LEAD_ID, section, item,
+      required: reqSel===''?null:reqSel==='yes',
+      qty: qty?Number(qty):null, material: material||null, remarks: remarks||null
+    });
+  });
+  return out;
+}
+async function saveChecklist(){
+  const rows = readChecklistForm();
+  const existing = YS.all('client_checklist_items').filter(c=>c.lead_id===CHECKLIST_LEAD_ID);
+  await Promise.all(existing.map(c=>YS.remove('client_checklist_items', c.id)));
+  await Promise.all(rows.map(r=>YS.insert('client_checklist_items', r)));
+  alert('✓ Checklist saved.');
+}
+async function saveAndGenerateQuotation(){
+  const rows = readChecklistForm();
+  const existing = YS.all('client_checklist_items').filter(c=>c.lead_id===CHECKLIST_LEAD_ID);
+  await Promise.all(existing.map(c=>YS.remove('client_checklist_items', c.id)));
+  await Promise.all(rows.map(r=>YS.insert('client_checklist_items', r)));
+
+  const required = rows.filter(r=>r.required===true);
+  if(!required.length){ alert('No items marked "Required" yet — tick at least one before generating a quotation.'); return; }
+
+  const catalog = YS.all('quotation_catalog').filter(q=>q.active);
+  const normalize = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const items = required.map(r=>{
+    // Try exact-ish name match first, then any item in the same category.
+    let match = catalog.find(q => normalize(q.item_name)===normalize(r.item));
+    if(!match) match = catalog.find(q => normalize(q.category)===normalize(sectionToCategory(r.section)) && normalize(q.item_name).includes(normalize(r.item).slice(0,8)));
+    if(match){
+      return {
+        item: match.item_name, category: match.category, material_spec: r.material || match.material_spec || '',
+        unit_type: match.unit_type, length: match.unit_type==='sqft'?0:null, height: match.unit_type==='sqft'?0:null,
+        qty: match.unit_type==='lump' ? (r.qty||1) : 0, rate: Number(match.rate), amount: 0
+      };
+    }
+    // No catalog match — add as a custom line so the designer can price it manually.
+    return { item: r.item, category: r.section, material_spec: r.material||'', unit_type:'custom', qty: r.qty||1, rate: 0, amount: 0 };
+  });
+
+  closeModal('checklist-modal');
+  CURRENT_LEAD_ID = CHECKLIST_LEAD_ID;
+  QITEMS = items;
+  renderQCPicker();
+  renderQItems();
+  document.getElementById('quote-modal').classList.add('open');
+}
+function sectionToCategory(section){
+  if(section==='Master Bedroom' || section==='Bedroom 2' || section==='Bedroom 3 / Kids Room') return 'Bedroom';
+  return section;
 }
 
 let QITEMS = [];

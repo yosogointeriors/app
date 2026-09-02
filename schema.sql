@@ -33,6 +33,7 @@ create table team_accounts (
 create table team_profiles (
   id uuid primary key,              -- same id as the matching team_accounts row
   name text not null,
+  email text,                       -- shown in Admin's Teams tab; not sensitive like a password
   role text not null,
   city text,
   phone text,
@@ -153,10 +154,46 @@ create table quotations (
   id uuid primary key default gen_random_uuid(),
   project_id uuid references projects(id) on delete cascade,
   version int default 1,
-  items jsonb,                     -- [{item, category, qty, rate, amount}]
+  items jsonb,                     -- [{item, category, material_spec, length, height, qty, unit_type, rate, amount}]
   total_amount numeric,
   status text default 'draft',     -- draft | sent | approved | revised
+  source text default 'builder',   -- builder | offline  (offline = uploaded file, not built in-app)
+  file_url text,                   -- set when source = 'offline'
+  file_name text,
   created_at timestamptz default now()
+);
+
+-- Standard line items the quotation builder picks from — this is what the
+-- Admin "Quotation Calculator" tab manages. Each row is one specific
+-- item + material combination with its own rate (e.g. "Modular Kitchen Base
+-- Unit — Plywood + Laminate" vs "...— Plywood + Acrylic" are two separate rows).
+create table quotation_catalog (
+  id uuid primary key default gen_random_uuid(),
+  category text not null,          -- Kitchen | Wardrobe | Living/Hall | Puja | Bedroom | TV Unit | ...
+  item_name text not null,         -- e.g. "L-Shape Base Unit"
+  material_spec text,              -- e.g. "Plywood + Laminate"
+  description text,                -- longer spec text shown on the quotation
+  unit_type text default 'sqft',   -- sqft (rate x length x height) | lump (flat rate, qty = count)
+  rate numeric not null,           -- per sqft, or lump-sum amount if unit_type = 'lump'
+  active boolean default true,
+  created_at timestamptz default now()
+);
+
+-- Room-wise client requirement checklist, filled per lead during a site
+-- visit/requirement call — mirrors the "Room-wise Checklist" tab of your
+-- client Excel. One row per section+item the CRM person has touched
+-- (ticked, quantified, or noted). Used to pre-fill the quotation builder.
+create table client_checklist_items (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete cascade,
+  section text not null,            -- e.g. "Kitchen", "Master Bedroom"
+  item text not null,               -- e.g. "Modular Base Units"
+  required boolean,                 -- true=✓ needed, false=✗ not needed, null=undecided
+  qty numeric,
+  material text,                    -- preferred material/brand, free text
+  remarks text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
 -- ── PAYMENTS ─────────────────────────────────────────────────────────────────
@@ -198,6 +235,12 @@ create table payment_settings (
   id uuid primary key default gen_random_uuid(),
   upi_id text,
   bank_details text,
+  -- Quotation letterhead — shown on every downloaded/printed quotation PDF
+  company_name text,               -- legal entity name (may differ from the YOSOGO brand name)
+  gstin text,
+  company_address text,
+  quotation_terms text,            -- numbered Terms & Conditions block
+  payment_terms_text text,         -- payment milestone breakdown shown on the quotation
   updated_at timestamptz default now()
 );
 
@@ -243,6 +286,7 @@ alter table payments enable row level security;
 alter table catalog_materials enable row level security;
 alter table payment_settings enable row level security;
 alter table team_profiles enable row level security;
+alter table quotation_catalog enable row level security;
 
 create policy "anon full access" on leads for all using (true) with check (true);
 create policy "anon full access" on lead_notes for all using (true) with check (true);
@@ -255,6 +299,8 @@ create policy "anon full access" on payment_milestones for all using (true) with
 create policy "anon full access" on payments for all using (true) with check (true);
 create policy "anon full access" on catalog_materials for all using (true) with check (true);
 create policy "anon full access" on payment_settings for all using (true) with check (true);
+create policy "anon full access" on quotation_catalog for all using (true) with check (true);
+create policy "anon full access" on client_checklist_items for all using (true) with check (true);
 create policy "anon read only" on team_profiles for select using (true);
 -- team_profiles is written only by the Worker (service_role) via /api/team/create
 -- and /api/team/toggle, so no anon insert/update/delete policy is created here.
@@ -262,4 +308,25 @@ create policy "anon read only" on team_profiles for select using (true);
 -- Enable Realtime (used by yosogo-data.js to keep all 4 portals live-synced)
 alter publication supabase_realtime add table leads, lead_notes, projects,
   project_stages, stage_photos, design_files, quotations,
-  payment_milestones, payments, catalog_materials, payment_settings, team_profiles;
+  payment_milestones, payments, catalog_materials, payment_settings, team_profiles,
+  quotation_catalog, client_checklist_items;
+
+-- ============================================================================
+-- STORAGE — bucket for uploaded offline quotation files (PDF/Excel/images)
+-- ============================================================================
+insert into storage.buckets (id, name, public)
+values ('quotation-files', 'quotation-files', true)
+on conflict (id) do nothing;
+
+create policy "anon upload quotation files" on storage.objects
+  for insert to anon with check (bucket_id = 'quotation-files');
+create policy "anon read quotation files" on storage.objects
+  for select to anon using (bucket_id = 'quotation-files');
+insert into storage.buckets (id, name, public)
+values ('quotation-files', 'quotation-files', true)
+on conflict (id) do nothing;
+
+create policy "anon upload quotation files" on storage.objects
+  for insert to anon with check (bucket_id = 'quotation-files');
+create policy "anon read quotation files" on storage.objects
+  for select to anon using (bucket_id = 'quotation-files');

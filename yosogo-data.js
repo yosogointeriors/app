@@ -24,7 +24,8 @@ const YS = (function () {
     'projects', 'project_stages', 'stage_photos',
     'design_files', 'quotations',
     'payment_milestones', 'payments',
-    'catalog_materials', 'payment_settings', 'team_profiles', 'quotation_catalog'
+    'catalog_materials', 'payment_settings', 'team_profiles', 'quotation_catalog',
+    'client_checklist_items'
   ];
 
   const DEFAULT_STAGES = [
