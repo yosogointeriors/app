@@ -236,11 +236,16 @@ function renderProjectStats(){
 function renderProjectsList(){
   const projects = myProjects();
   const stages = YS.all('project_stages');
+  const designFiles = YS.all('design_files');
   document.getElementById('projects-list').innerHTML = projects.map(p=>{
     const st = stages.filter(s=>s.project_id===p.id).sort((a,b)=>a.stage_order-b.stage_order);
     const current = st.find(s=>s.status==='in_progress');
+    const docsCount = designFiles.filter(d=>d.project_id===p.id && d.status==='sent_to_production').length;
     return `<div class="card" onclick="openProjectDetail('${p.id}')">
-      <div class="card-title">${p.project_name}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div class="card-title">${p.project_name}</div>
+        ${docsCount ? `<span class="pill p-ok">📄 ${docsCount} design doc${docsCount>1?'s':''}</span>` : ''}
+      </div>
       <div class="card-sub">${p.city} · Target handover: ${p.target_handover_date||'—'}</div>
       <div class="stage-bar">${st.map(s=>`<div class="stage-seg ${s.status==='completed'?'done':s.status==='in_progress'?'active':''}" title="${s.stage_name}"></div>`).join('')}</div>
       <div style="font-size:12px;color:var(--mut);">Current: <b style="color:var(--txt);">${current?current.stage_name:(st.every(s=>s.status==='completed')?'Completed':'Not started')}</b></div>
@@ -253,9 +258,23 @@ function openProjectDetail(id){
   const p = YS.find('projects', id);
   const stages = YS.all('project_stages').filter(s=>s.project_id===id).sort((a,b)=>a.stage_order-b.stage_order);
   const photos = YS.all('stage_photos').filter(ph=>ph.project_id===id);
+  const designDocs = YS.all('design_files').filter(d=>d.project_id===id && d.status==='sent_to_production');
   document.getElementById('pm-title').textContent = p.project_name;
   document.getElementById('pm-body').innerHTML = `
     <div style="margin-bottom:6px;color:var(--mut);font-size:12.5px;">${p.address||p.city}</div>
+    <div class="card-title" style="font-size:13px;">Design Documents from CRM (${designDocs.length})</div>
+    <div style="margin-bottom:16px;">${designDocs.map(d=>{
+      const isImage = /\.(png|jpe?g|gif|webp)$/i.test(d.file_name||d.file_url||'');
+      return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
+        ${isImage ? `<img src="${d.file_url}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;"/>` : `<div style="width:40px;height:40px;border-radius:6px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:16px;">📄</div>`}
+        <div>
+          <div style="font-size:12.5px;font-weight:600;">${d.room_name}</div>
+          ${d.notes ? `<div style="font-size:11px;color:var(--mut);">${d.notes}</div>` : ''}
+          <a href="${d.file_url}" target="_blank" style="font-size:11px;color:var(--amber);">View / Download</a>
+        </div>
+      </div>`;
+    }).join('') || '<span style="color:var(--mut);font-size:12.5px;">No design documents sent yet — check back once the design team hands off.</span>'}</div>
+    <div class="card-title" style="font-size:13px;">Stage Progress</div>
     ${stages.map(s=>`
       <div class="stage-row">
         <div>
@@ -266,11 +285,11 @@ function openProjectDetail(id){
           <span class="pill ${s.status==='completed'?'p-ok':s.status==='in_progress'?'p-wrn':'p-inf'}">${s.status.replace('_',' ')}</span>
           ${s.status==='pending' ? `<button class="btn btn-xs" onclick="startStage('${id}','${s.id}')">Start</button>`:''}
           ${s.status==='in_progress' ? `<button class="btn btn-c btn-xs" onclick="completeStage('${id}','${s.id}')">Complete</button>`:''}
-          <button class="btn btn-xs" onclick="uploadPhoto('${id}','${s.id}')">📷 Photo</button>
+          <button class="btn btn-xs" onclick="uploadPhoto('${id}','${s.id}')">📷 Photo${s.stage_name==='Final Handover'?' (Final)':''}</button>
           <button class="btn btn-w btn-xs" onclick="flagDelay('${s.id}')">⚠</button>
         </div>
       </div>`).join('')}
-    <div class="card-title" style="font-size:13px;margin-top:16px;">All Photos (${photos.length})</div>
+    <div class="card-title" style="font-size:13px;margin-top:16px;">All Photos (${photos.length}) — visible to the customer</div>
     <div class="gallery">${photos.map(ph=>`<div><img src="${ph.photo_url}"/><div style="font-size:10.5px;margin-top:3px;">${ph.caption||''}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
   `;
   document.getElementById('proj-modal').classList.add('open');

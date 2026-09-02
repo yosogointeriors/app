@@ -246,6 +246,20 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   </div>
 </div>
 
+<!-- DESIGN DOCUMENT UPLOAD MODAL -->
+<div class="modal-overlay" id="design-upload-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Upload Design Document</h3><button class="modal-close" onclick="closeModal('design-upload-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="fr"><label class="fl">Room / Area</label><input type="text" id="dg-room" placeholder="e.g. Kitchen, Master Wardrobe"/></div>
+      <div class="fr"><label class="fl">Design File (PDF, DWG, image)</label><input type="file" id="dg-file" accept=".pdf,.dwg,.png,.jpg,.jpeg"/></div>
+      <div class="fr"><label class="fl">Notes (optional)</label><textarea id="dg-notes" placeholder="e.g. L-shaped layout with breakfast counter"></textarea></div>
+      <div id="dg-progress" style="font-size:12px;color:var(--mut);display:none;">Uploading…</div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('design-upload-modal')">Cancel</button><button class="btn btn-c" onclick="saveDesignUpload()">Upload</button></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="yosogo-data.js"></script>
@@ -360,7 +374,7 @@ function openLeadDetail(id){
       <button class="btn btn-sm" onclick="openChecklist('${id}')">📋 Client Checklist</button>
       ${l.status!=='quotation_sent' && l.status!=='booked' ? `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Build Quotation</button>` : `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Revise Quotation</button>`}
       <button class="btn btn-sm" onclick="openOfflineQuoteModal('${id}')">📎 Upload Offline Quotation</button>
-      <button class="btn btn-sm" onclick="uploadDesign('${id}')">🎨 Upload Design Render</button>
+      <button class="btn btn-sm" onclick="uploadDesign('${id}')">🎨 Upload Design Document</button>
       <button class="btn btn-d btn-sm" onclick="markLost('${id}')">Mark Lost</button>
     </div>
     ${quotes.length ? `<div class="card-title" style="font-size:13px;margin-bottom:8px;">Quotation History</div>
@@ -373,8 +387,26 @@ function openLeadDetail(id){
         ? (q.file_url ? `<a href="${q.file_url}" target="_blank" class="btn btn-xs">View File</a>` : '')
         : `<button class="btn btn-xs" onclick="downloadQuotationPDF('${q.id}')">📄 Download PDF</button>`}
     </div>`).join('')}</div>` : ''}
-    <div class="card-title" style="font-size:13px;margin-bottom:8px;">Design Renders</div>
-    <div class="gallery">${designs.map(d=>`<div><img src="${d.file_url}"/><div style="font-size:10.5px;margin-top:3px;">${d.room_name}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
+    <div class="card-title" style="font-size:13px;margin-bottom:8px;">Design Documents</div>
+    <div style="margin-bottom:8px;">${designs.map(d=>{
+      const isImage = /\.(png|jpe?g|gif|webp)$/i.test(d.file_name||d.file_url||'');
+      const statusPill = d.status==='sent_to_production' ? '<span class="pill p-ok">📤 Sent to Production</span>'
+        : d.status==='verified' ? '<span class="pill p-inf">✓ Verified</span>'
+        : '<span class="pill p-wrn">Uploaded</span>';
+      const actionBtn = d.status==='uploaded' ? `<button class="btn btn-xs" onclick="verifyDesignFile('${d.id}','${id}')">✓ Verify</button>`
+        : d.status==='verified' ? `<button class="btn btn-c btn-xs" onclick="sendDesignToProduction('${d.id}','${id}')">📤 Send to Production</button>`
+        : '';
+      return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${isImage ? `<img src="${d.file_url}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;"/>` : `<div style="width:44px;height:44px;border-radius:6px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:18px;">📄</div>`}
+          <div>
+            <div style="font-size:12.5px;font-weight:600;">${d.room_name} <span style="font-weight:400;color:var(--mut);">v${d.version}</span> ${d.customer_approved?' ✅':''}</div>
+            <a href="${d.file_url}" target="_blank" style="font-size:11px;color:var(--blue);">View File</a>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">${statusPill}${actionBtn}</div>
+      </div>`;
+    }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
     <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Notes &amp; Site Visit Log</div>
     <div class="fr" style="display:flex;gap:8px;"><input type="text" id="lm-note-text" placeholder="e.g. Site visit done — 3 rooms measured, kitchen 9x7ft…" style="flex:1;"/><button class="btn btn-p btn-sm" onclick="addLeadNote('${id}')">Add</button></div>
     <div>${notes.map(n=>`<div class="note-item">${n.note}<div class="note-meta">${new Date(n.created_at).toLocaleString('en-IN')}</div></div>`).join('') || '<div style="color:var(--mut);font-size:12.5px;">No notes yet.</div>'}</div>
@@ -406,16 +438,51 @@ async function addLeadNote(id){
   await YS.insert('lead_notes',{lead_id:id, note:txt, added_by_type:'team', added_by_id:session.id});
   openLeadDetail(id);
 }
-async function uploadDesign(id){
-  let proj = YS.all('projects').find(p=>p.lead_id===id);
-  if(!proj){ alert('This lead isn\'t booked yet — design renders for pre-booking presentations can still be attached; we\'ll create a temporary project record.'); proj = await YS.createProjectFromLead(YS.find('leads',id)); }
-  const room = prompt('Room name? (e.g. Kitchen, Master Wardrobe)');
-  if(!room) return;
-  const url = prompt('Paste the design render image URL (in production this would be a file upload):', 'https://picsum.photos/seed/'+Math.random().toString(36).slice(2,8)+'/600/420');
-  if(!url) return;
-  await YS.insert('design_files',{project_id:proj.id, room_name:room, file_url:url, version:1, customer_approved:false});
-  if(YS.find('leads',id).status==='site_visit_done' || YS.find('leads',id).status==='contacted') await YS.update('leads', id, {status:'design_presented'});
-  renderAll(); openLeadDetail(id);
+let DESIGN_UPLOAD_LEAD_ID = null;
+function uploadDesign(id){
+  DESIGN_UPLOAD_LEAD_ID = id;
+  document.getElementById('dg-room').value = '';
+  document.getElementById('dg-file').value = '';
+  document.getElementById('dg-notes').value = '';
+  document.getElementById('dg-progress').style.display = 'none';
+  document.getElementById('design-upload-modal').classList.add('open');
+}
+async function saveDesignUpload(){
+  const id = DESIGN_UPLOAD_LEAD_ID;
+  const room = document.getElementById('dg-room').value.trim();
+  const fileInput = document.getElementById('dg-file');
+  const file = fileInput.files[0];
+  if(!room){ alert('Enter a room/area name.'); return; }
+  if(!file){ alert('Choose a file to upload.'); return; }
+  const progressEl = document.getElementById('dg-progress');
+  progressEl.style.display = 'block';
+  try{
+    let proj = YS.all('projects').find(p=>p.lead_id===id);
+    if(!proj) proj = await YS.createProjectFromLead(YS.find('leads',id));
+    const { url, name } = await YS.uploadFile('design-files', file);
+    const existingCount = YS.all('design_files').filter(d=>d.project_id===proj.id && d.room_name===room).length;
+    await YS.insert('design_files', {
+      project_id: proj.id, room_name: room, file_url: url, file_name: name,
+      version: existingCount + 1, notes: document.getElementById('dg-notes').value.trim(),
+      customer_approved: false, status: 'uploaded'
+    });
+    const lead = YS.find('leads', id);
+    if(lead.status==='site_visit_done' || lead.status==='contacted') await YS.update('leads', id, {status:'design_presented'});
+    closeModal('design-upload-modal'); renderAll(); openLeadDetail(id);
+  }catch(e){
+    alert('Upload failed: '+e.message);
+  }finally{
+    progressEl.style.display = 'none';
+  }
+}
+async function verifyDesignFile(designId, leadId){
+  await YS.update('design_files', designId, {status:'verified', verified_at:new Date().toISOString()});
+  openLeadDetail(leadId);
+}
+async function sendDesignToProduction(designId, leadId){
+  await YS.update('design_files', designId, {status:'sent_to_production', sent_to_production_at:new Date().toISOString()});
+  openLeadDetail(leadId);
+  alert('✓ Sent to Site & Production team.');
 }
 
 const CHECKLIST_TEMPLATE = [

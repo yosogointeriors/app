@@ -143,10 +143,14 @@ create table design_files (
   project_id uuid references projects(id) on delete cascade,
   room_name text,                  -- Kitchen, Master Wardrobe, Living Room...
   file_url text not null,
+  file_name text,                  -- original filename (PDF/DWG/image — not always renderable as <img>)
   version int default 1,
   notes text,
   customer_approved boolean default false,
   approved_at timestamptz,
+  status text default 'uploaded',  -- uploaded | verified | sent_to_production
+  verified_at timestamptz,
+  sent_to_production_at timestamptz,
   created_at timestamptz default now()
 );
 
@@ -315,7 +319,7 @@ alter publication supabase_realtime add table leads, lead_notes, projects,
   quotation_catalog, client_checklist_items;
 
 -- ============================================================================
--- STORAGE — bucket for uploaded offline quotation files (PDF/Excel/images)
+-- STORAGE — buckets for uploaded files (quotations, design documents)
 -- ============================================================================
 insert into storage.buckets (id, name, public)
 values ('quotation-files', 'quotation-files', true)
@@ -325,11 +329,12 @@ create policy "anon upload quotation files" on storage.objects
   for insert to anon with check (bucket_id = 'quotation-files');
 create policy "anon read quotation files" on storage.objects
   for select to anon using (bucket_id = 'quotation-files');
+
 insert into storage.buckets (id, name, public)
-values ('quotation-files', 'quotation-files', true)
+values ('design-files', 'design-files', true)
 on conflict (id) do nothing;
 
-create policy "anon upload quotation files" on storage.objects
-  for insert to anon with check (bucket_id = 'quotation-files');
-create policy "anon read quotation files" on storage.objects
-  for select to anon using (bucket_id = 'quotation-files');
+create policy "anon upload design files" on storage.objects
+  for insert to anon with check (bucket_id = 'design-files');
+create policy "anon read design files" on storage.objects
+  for select to anon using (bucket_id = 'design-files');
