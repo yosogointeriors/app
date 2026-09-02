@@ -308,13 +308,21 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
             <div><label class="fl">Phone</label><input type="text" id="tm-phone"/></div>
           </div>
           <div class="form-2col" style="margin-bottom:12px;">
-            <div><label class="fl">Role</label><select id="tm-role"><option value="sales_head">Sales Head</option><option value="designer">Designer</option><option value="site_manager">Site Manager</option><option value="partner">Partner</option></select></div>
+            <div>
+              <label class="fl">Roles (select all that apply)</label>
+              <div style="display:flex;gap:14px;flex-wrap:wrap;padding:8px 0;">
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="tm-role-cb" value="sales_head"/> Sales Head</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="tm-role-cb" value="designer"/> Designer</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="tm-role-cb" value="site_manager"/> Site Manager</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="tm-role-cb" value="partner"/> Partner</label>
+              </div>
+            </div>
             <div><label class="fl">City / Region</label><input type="text" id="tm-city" placeholder="e.g. Chennai"/></div>
           </div>
           <button class="btn btn-c" onclick="addTeamMember()">+ Add Team Member</button>
         </div>
         <div class="adm-card" style="padding:0;overflow-x:auto;">
-          <table><thead><tr><th>Name</th><th>Role</th><th>City</th><th>Phone</th><th>Status</th><th></th></tr></thead><tbody id="teams-tbody"></tbody></table>
+          <table><thead><tr><th>Name</th><th>Roles</th><th>City</th><th>Phone</th><th>Status</th><th></th></tr></thead><tbody id="teams-tbody"></tbody></table>
         </div>
       </div>
 
@@ -399,8 +407,14 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         <div class="fr"><label class="fl">Email</label><input type="email" id="et-email"/></div>
         <div class="fr"><label class="fl">Phone</label><input type="text" id="et-phone"/></div>
         <div class="fr"><label class="fl">City / Region</label><input type="text" id="et-city"/></div>
-        <div class="fr"><label class="fl">Role</label>
-          <select id="et-role"><option value="sales_head">Sales Head</option><option value="designer">Designer</option><option value="site_manager">Site Manager</option><option value="partner">Partner</option></select>
+        <div class="fr">
+          <label class="fl">Roles (select all that apply)</label>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;padding:6px 0;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="et-role-cb" value="sales_head"/> Sales Head</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="et-role-cb" value="designer"/> Designer</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="et-role-cb" value="site_manager"/> Site Manager</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;"><input type="checkbox" class="et-role-cb" value="partner"/> Partner</label>
+          </div>
         </div>
       </div>
       <div style="font-size:11.5px;color:var(--mut);margin-top:4px;">To change their password, use "Reset Password" from the Teams list instead.</div>
@@ -573,14 +587,14 @@ function openLeadDetail(id){
         <label class="fl">Assign To</label>
         <select id="lm-assign" onchange="quickUpdateAssign('${id}')">
           <option value="">Unassigned</option>
-          ${team.filter(t=>t.role!=='site_manager' && t.role!=='partner').map(t=>`<option value="${t.id}" ${l.assigned_to===t.id?'selected':''}>${t.name} (${t.role.replace('_',' ')})</option>`).join('')}
+          ${team.filter(t=>!(t.roles||[]).includes('site_manager') && !(t.roles||[]).includes('partner')).map(t=>`<option value="${t.id}" ${l.assigned_to===t.id?'selected':''}>${t.name} (${(t.roles||[]).join(', ').replace(/_/g,' ')})</option>`).join('')}
         </select>
       </div>
       <div>
         <label class="fl">Referring Partner</label>
         <select id="lm-partner" onchange="quickUpdatePartner('${id}')">
           <option value="">None</option>
-          ${team.filter(t=>t.role==='partner').map(t=>`<option value="${t.id}" ${l.partner_id===t.id?'selected':''}>${t.name}</option>`).join('')}
+          ${team.filter(t=>(t.roles||[]).includes('partner')).map(t=>`<option value="${t.id}" ${l.partner_id===t.id?'selected':''}>${t.name}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -758,7 +772,7 @@ async function deleteQuotationCatalogItem(id){
 function renderTeams(){
   document.getElementById('teams-tbody').innerHTML = YS.all('team_profiles').map(t=>`
     <tr><td><b>${t.name}</b><br><span style="color:var(--mut);font-size:11px;">${t.email||'—'}</span></td>
-    <td style="text-transform:capitalize;">${t.role.replace('_',' ')}</td><td>${t.city||'—'}</td><td>${t.phone||'—'}</td>
+    <td style="text-transform:capitalize;">${(t.roles||[]).map(r=>r.replace('_',' ')).join(', ')||'—'}</td><td>${t.city||'—'}</td><td>${t.phone||'—'}</td>
     <td><span class="pill ${t.active?'p-ok':'p-no'}">${t.active?'Active':'Inactive'}</span></td>
     <td style="white-space:nowrap;">
       <button class="btn btn-xs" onclick="event.stopPropagation();openEditTeamModal('${t.id}')">Edit</button>
@@ -770,15 +784,17 @@ function renderTeams(){
 async function addTeamMember(){
   const name=document.getElementById('tm-name').value.trim();
   const email=document.getElementById('tm-email').value.trim();
+  const roles = Array.from(document.querySelectorAll('.tm-role-cb:checked')).map(cb=>cb.value);
   if(!name||!email){ alert('Name and email are required.'); return; }
+  if(!roles.length){ alert('Select at least one role.'); return; }
   try{
     await YS.createTeamMember({
-      name, email,
-      role:document.getElementById('tm-role').value,
+      name, email, roles,
       city:document.getElementById('tm-city').value.trim(),
       phone:document.getElementById('tm-phone').value.trim()
     });
     ['tm-name','tm-email','tm-phone','tm-city'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('.tm-role-cb').forEach(cb=>cb.checked=false);
     await YS.refresh('team_profiles');
     renderAll();
   }catch(e){ alert('Could not add team member: '+e.message); }
@@ -796,20 +812,22 @@ function openEditTeamModal(id){
   document.getElementById('et-email').value = t.email || '';
   document.getElementById('et-phone').value = t.phone || '';
   document.getElementById('et-city').value = t.city || '';
-  document.getElementById('et-role').value = t.role;
+  const roles = t.roles || [];
+  document.querySelectorAll('.et-role-cb').forEach(cb=>{ cb.checked = roles.includes(cb.value); });
   document.getElementById('edit-team-modal').classList.add('open');
 }
 async function saveEditTeam(){
   const id = document.getElementById('et-id').value;
   const name = document.getElementById('et-name').value.trim();
   const email = document.getElementById('et-email').value.trim();
+  const roles = Array.from(document.querySelectorAll('.et-role-cb:checked')).map(cb=>cb.value);
   if(!name||!email){ alert('Name and email are required.'); return; }
+  if(!roles.length){ alert('Select at least one role.'); return; }
   try{
     await YS.updateTeamMember({
-      id, name, email,
+      id, name, email, roles,
       phone: document.getElementById('et-phone').value.trim(),
-      city: document.getElementById('et-city').value.trim(),
-      role: document.getElementById('et-role').value
+      city: document.getElementById('et-city').value.trim()
     });
     await YS.refresh('team_profiles');
     closeModal('edit-team-modal');

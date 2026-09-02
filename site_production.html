@@ -185,7 +185,7 @@ async function doLogin(){
   errEl.style.display='none';
   try{
     const { account: acc } = await YS.login('team', email, pass);
-    if(acc.role !== 'site_manager'){ errEl.style.display='block'; errEl.textContent='This account is not a Site Manager.'; return; }
+    if(!(acc.roles||[]).includes('site_manager')){ errEl.style.display='block'; errEl.textContent='This account does not have the Site Manager role.'; return; }
     session = acc;
     await YS.ready();
     document.getElementById('login-screen').style.display='none';

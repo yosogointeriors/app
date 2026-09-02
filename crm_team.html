@@ -159,6 +159,11 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
             <option value="design_presented">Design Presented</option><option value="quotation_sent">Quotation Sent</option>
             <option value="negotiation">Negotiation</option><option value="booked">Booked</option><option value="lost">Lost</option>
           </select>
+          <select id="f-assigned" onchange="renderPipeline()">
+            <option value="">All leads (everyone)</option>
+            <option value="me">Assigned to me</option>
+            <option value="unassigned">Unassigned</option>
+          </select>
         </div>
         <div class="card" style="padding:0;overflow-x:auto;">
           <table><thead><tr><th>Lead</th><th>Project</th><th>Source</th><th>Status</th><th>Quotation</th><th>Last Update</th></tr></thead><tbody id="pipe-tbody"></tbody></table>
@@ -259,8 +264,8 @@ async function doLogin(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-wrap').classList.add('show');
     document.getElementById('who-name').textContent = acc.name;
-    document.getElementById('who-role').textContent = acc.role.replace('_',' ') + ' · ' + (acc.city||'');
-    document.getElementById('pipe-title').textContent = acc.role==='sales_head' ? "Team Pipeline" : "My Pipeline";
+    document.getElementById('who-role').textContent = (acc.roles||[]).map(r=>r.replace('_',' ')).join(', ') + ' · ' + (acc.city||'');
+    document.getElementById('pipe-title').textContent = (acc.roles||[]).includes('sales_head') ? "Team Pipeline" : "My Pipeline";
     renderAll();
   }catch(e){
     errEl.style.display='block'; errEl.textContent = e.message || 'Invalid login or inactive account.';
@@ -280,18 +285,17 @@ const STATUS_PILL = {new:'p-inf',contacted:'p-inf',site_visit_scheduled:'p-wrn',
 const STATUS_ORDER = ['new','contacted','site_visit_scheduled','site_visit_done','design_presented','quotation_sent','negotiation','booked'];
 
 function myLeads(){
-  const all = YS.all('leads');
-  if(session.role==='sales_head'){
-    const cityList = (session.city||'').split(',').map(s=>s.trim());
-    return all.filter(l=>cityList.includes(l.city));
-  }
-  return all.filter(l=>l.assigned_to===session.id);
+  // Everyone on the CRM/Design team currently shares responsibilities across
+  // sales, design, etc. — so full visibility by default. Use the "Assigned"
+  // filter dropdown to narrow to just leads assigned to you, if you want.
+  return YS.all('leads');
 }
 
 function renderAll(){ renderPipeline(); renderProjects(); renderPerformance(); }
 
 function renderPipeline(){
   const fStatus = document.getElementById('f-status')?.value||'';
+  const fAssigned = document.getElementById('f-assigned')?.value||'';
   let leads = myLeads().sort((a,b)=>new Date(b.updated_at||b.created_at)-new Date(a.updated_at||a.created_at));
   const total = leads.length, booked = leads.filter(l=>l.status==='booked').length, lost = leads.filter(l=>l.status==='lost').length;
   const open = leads.filter(l=>!['booked','lost'].includes(l.status)).length;
@@ -302,6 +306,8 @@ function renderPipeline(){
     <div class="stat-card"><div class="stat-num">${total?Math.round(booked/total*100):0}%</div><div class="stat-lbl">Conversion</div></div>
   `;
   if(fStatus) leads = leads.filter(l=>l.status===fStatus);
+  if(fAssigned==='me') leads = leads.filter(l=>l.assigned_to===session.id);
+  else if(fAssigned==='unassigned') leads = leads.filter(l=>!l.assigned_to);
   document.getElementById('pipe-tbody').innerHTML = leads.map(l=>{
     const q = latestQuotation(l.id);
     return `<tr onclick="openLeadDetail('${l.id}')">
@@ -374,7 +380,7 @@ async function advanceStatus(id, status){
   if(status==='booked'){
     if(!YS.all('projects').find(p=>p.lead_id===id)){
       const l = YS.find('leads', id);
-      const proj = await YS.createProjectFromLead(l, {designer_id: session.role==='designer'?session.id:l.assigned_to});
+      const proj = await YS.createProjectFromLead(l, {designer_id: (session.roles||[]).includes('designer')?session.id:l.assigned_to});
       const pinMsg = proj._generatedPin ? '\n\nCustomer portal PIN for '+l.name+' ('+l.phone+'): '+proj._generatedPin+'\nShare this with them — they log in with phone + PIN.' : '';
       alert('🎉 Lead booked! A live project has been created.'+pinMsg);
     }

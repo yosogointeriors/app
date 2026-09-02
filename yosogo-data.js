@@ -170,8 +170,8 @@ const YS = (function () {
   function login(type, email, password) { return workerFetch('/api/login', { type, email, password }); }
   function customerLogin(phone, pin) { return workerFetch('/api/customer/login', { phone, pin }); }
   function setCustomerPin({ project_id, name, phone, pin }) { return workerFetch('/api/customer/set-pin', { project_id, name, phone, pin }); }
-  function createTeamMember({ name, email, phone, role, city }) { return workerFetch('/api/team/create', { name, email, phone, role, city }); }
-  function updateTeamMember({ id, name, email, phone, role, city }) { return workerFetch('/api/team/update', { id, name, email, phone, role, city }); }
+  function createTeamMember({ name, email, phone, roles, city }) { return workerFetch('/api/team/create', { name, email, phone, roles, city }); }
+  function updateTeamMember({ id, name, email, phone, roles, city }) { return workerFetch('/api/team/update', { id, name, email, phone, roles, city }); }
   function resetTeamPassword(id, password) { return workerFetch('/api/team/reset-password', { id, password }); }
   function toggleTeamMember(id) { return workerFetch('/api/team/toggle', { id }); }
 
