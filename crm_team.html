@@ -616,26 +616,29 @@ function sectionToCategory(section){
   return section;
 }
 
-const ROOM_LIST = ['Foyer','Living Room','Dining','Master Bedroom','Children Bedroom','Guest Bedroom','Kitchen','Study/Office Room','Pooja Room','Home Theatre','Balcony','Utility','Bathroom (Common/Attached)'];
+// Order matches the Client Requirement Checklist exactly (see
+// CHECKLIST_TEMPLATE below) — "Home Theatre" is appended at the end since
+// it's not part of the checklist but has its own catalog items already.
+const ROOM_LIST = ['Foyer/Entrance','Living Room','Dining','Kitchen','Crockery Unit','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre'];
 // Maps each room in the picker to the underlying catalog category (or
-// categories) it should pull items from — several rooms share one pool of
-// generic items (e.g. all 3 bedroom types use the same "Bedroom" catalog
-// entries), but the item still gets tagged with the SPECIFIC room chosen so
-// the PDF groups it correctly (see addCatalogQItem below).
+// categories) it should pull items from — the 3 bedroom rooms share one
+// pool of generic items ("Bedroom" catalog entries), but each item still
+// gets tagged with the SPECIFIC room chosen so the PDF groups it correctly
+// (see addCatalogQItem below).
 const ROOM_CATEGORY_MAP = {
-  'Foyer': ['foyer/entrance','foyer'],
+  'Foyer/Entrance': ['foyer/entrance'],
   'Living Room': ['living room','living/hall'],
-  'Dining': ['dining','crockery unit'],
-  'Master Bedroom': ['bedroom'],
-  'Children Bedroom': ['bedroom'],
-  'Guest Bedroom': ['bedroom'],
+  'Dining': ['dining'],
   'Kitchen': ['kitchen'],
-  'Study/Office Room': ['study/home office','study/office room'],
-  'Pooja Room': ['pooja unit','puja','pooja room'],
-  'Home Theatre': ['home theatre'],
-  'Balcony': ['balcony/utility','balcony'],
-  'Utility': ['balcony/utility','utility'],
-  'Bathroom (Common/Attached)': ['bathroom']
+  'Crockery Unit': ['crockery unit'],
+  'Pooja Unit': ['pooja unit','puja'],
+  'Master Bedroom': ['bedroom'],
+  'Bedroom 2': ['bedroom'],
+  'Bedroom 3 / Kids Room': ['bedroom'],
+  'Study/Home Office': ['study/home office'],
+  'Bathroom': ['bathroom'],
+  'Balcony/Utility': ['balcony/utility'],
+  'Home Theatre': ['home theatre']
 };
 
 let QITEMS = [];

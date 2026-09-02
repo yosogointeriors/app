@@ -188,14 +188,24 @@ const YS = (function () {
     const fmtDate = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }).replace(/\//g, '-');
     const quoteNo = 'Q-' + quotation.id.slice(0, 8).toUpperCase();
 
-    // Group items by category for a clearer, section-by-section read —
-    // preserves the order categories were first added in, not alphabetical.
-    const categoryOrder = [];
+    // Group items by category (room), ordered to match the Client
+    // Requirement Checklist's room order — categories not in that canonical
+    // list (custom/legacy ones) fall in afterward, in the order they first
+    // appeared in this quotation.
+    const CANONICAL_ROOM_ORDER = ['Foyer/Entrance','Living Room','Dining','Kitchen','Crockery Unit','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre'];
     const grouped = {};
+    const firstSeenOrder = [];
     items.forEach(it => {
       const cat = it.category || 'Other';
-      if (!grouped[cat]) { grouped[cat] = []; categoryOrder.push(cat); }
+      if (!grouped[cat]) { grouped[cat] = []; firstSeenOrder.push(cat); }
       grouped[cat].push(it);
+    });
+    const categoryOrder = firstSeenOrder.slice().sort((a, b) => {
+      const ia = CANONICAL_ROOM_ORDER.indexOf(a), ib = CANONICAL_ROOM_ORDER.indexOf(b);
+      if (ia === -1 && ib === -1) return firstSeenOrder.indexOf(a) - firstSeenOrder.indexOf(b);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
     });
 
     let rowNum = 0;
