@@ -237,7 +237,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         </div>
         <div class="adm-card" style="padding:0;overflow-x:auto;">
           <table>
-            <thead><tr><th>Lead</th><th>Source</th><th>City</th><th>Project</th><th>Assigned</th><th>Status</th><th>Created</th></tr></thead>
+            <thead><tr><th>Lead</th><th>Source</th><th>City</th><th>Project</th><th>Assigned</th><th>Status</th><th>Quotation</th><th>Created</th></tr></thead>
             <tbody id="leads-tbody"></tbody>
           </table>
         </div>
@@ -320,13 +320,23 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 
       <!-- SETTINGS -->
       <div class="admin-tab" id="tab-settings">
-        <div class="adm-page-title">Payment Settings</div>
-        <div class="adm-page-sub">UPI &amp; bank details shown to customers on the payment screen.</div>
-        <div class="adm-card" style="max-width:480px;">
+        <div class="adm-page-title">Payment &amp; Quotation Settings</div>
+        <div class="adm-page-sub">UPI/bank details for customers, and the letterhead shown on every downloaded quotation PDF.</div>
+        <div class="adm-card" style="max-width:560px;">
+          <div class="adm-card-title" style="font-size:13px;">Customer Payment Details</div>
           <div class="fr"><label class="fl">UPI ID</label><input type="text" id="set-upi"/></div>
           <div class="fr"><label class="fl">Bank Details</label><textarea id="set-bank"></textarea></div>
-          <button class="btn btn-p" onclick="saveSettings()">Save Settings</button>
         </div>
+        <div class="adm-card" style="max-width:560px;">
+          <div class="adm-card-title" style="font-size:13px;">Quotation Letterhead</div>
+          <div class="adm-card-sub">Shown at the top of every quotation your team downloads/sends.</div>
+          <div class="fr"><label class="fl">Company / Legal Entity Name</label><input type="text" id="set-company-name" placeholder="e.g. URBAN NEST MODULAR FACTORY"/></div>
+          <div class="fr"><label class="fl">GSTIN</label><input type="text" id="set-gstin"/></div>
+          <div class="fr"><label class="fl">Company Address</label><textarea id="set-address"></textarea></div>
+          <div class="fr"><label class="fl">Terms &amp; Conditions (numbered, one per line)</label><textarea id="set-terms" style="min-height:160px;"></textarea></div>
+          <div class="fr"><label class="fl">Payment Terms (one per line)</label><textarea id="set-payterms" style="min-height:100px;"></textarea></div>
+        </div>
+        <button class="btn btn-p" onclick="saveSettings()">Save Settings</button>
       </div>
 
     </div>
@@ -502,9 +512,21 @@ function renderLeads(){
       <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
       <td>${assignee?assignee.name:'<span style="color:var(--hnt);">Unassigned</span>'}${partner?`<br><span style="color:var(--hnt);font-size:10.5px;">via ${partner.name}</span>`:''}</td>
       <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span>${l.site_ready===true?' <span class="pill p-ok" title="Site ready for design & installation">✓ Ready</span>':l.site_ready===false?' <span class="pill p-wrn" title="Site not ready yet">Not Ready</span>':''}</td>
+      <td>${(()=>{ const proj=YS.all('projects').find(p=>p.lead_id===l.id); const q=proj?YS.all('quotations').filter(x=>x.project_id===proj.id).sort((a,b)=>b.version-a.version)[0]:null; return q ? `₹${Number(q.total_amount||0).toLocaleString('en-IN')}<br><span style="color:var(--mut);font-size:10.5px;cursor:pointer;text-decoration:underline;" onclick="event.stopPropagation();${q.source==='offline'?`window.open('${q.file_url}','_blank')`:`adminDownloadQuotationPDF('${q.id}')`}">${q.source==='offline'?'View File':'Download PDF'}</span>` : '<span style="color:var(--hnt);">—</span>'; })()}</td>
       <td style="color:var(--mut);font-size:11.5px;">${new Date(l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px;">No leads match these filters.</td></tr>`;
+  }).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:30px;">No leads match these filters.</td></tr>`;
+}
+function adminDownloadQuotationPDF(quoteId){
+  const q = YS.find('quotations', quoteId);
+  if(!q || q.source==='offline'){ return; }
+  const proj = YS.find('projects', q.project_id);
+  const lead = proj ? YS.find('leads', proj.lead_id) : null;
+  const settings = YS.all('payment_settings')[0] || {};
+  const html = YS.renderQuotationHTML(q, lead, settings);
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 function openLeadForm(){ document.getElementById('add-lead-modal').classList.add('open'); }
@@ -805,13 +827,29 @@ async function resetTeamMemberPassword(id){
 
 function renderSettings(){
   const s = YS.all('payment_settings')[0];
-  if(s){ document.getElementById('set-upi').value=s.upi_id||''; document.getElementById('set-bank').value=s.bank_details||''; }
+  if(s){
+    document.getElementById('set-upi').value=s.upi_id||'';
+    document.getElementById('set-bank').value=s.bank_details||'';
+    document.getElementById('set-company-name').value=s.company_name||'';
+    document.getElementById('set-gstin').value=s.gstin||'';
+    document.getElementById('set-address').value=s.company_address||'';
+    document.getElementById('set-terms').value=s.quotation_terms||'';
+    document.getElementById('set-payterms').value=s.payment_terms_text||'';
+  }
 }
 async function saveSettings(){
   const s = YS.all('payment_settings')[0];
-  const patch = {upi_id:document.getElementById('set-upi').value.trim(), bank_details:document.getElementById('set-bank').value.trim()};
+  const patch = {
+    upi_id:document.getElementById('set-upi').value.trim(),
+    bank_details:document.getElementById('set-bank').value.trim(),
+    company_name:document.getElementById('set-company-name').value.trim(),
+    gstin:document.getElementById('set-gstin').value.trim(),
+    company_address:document.getElementById('set-address').value.trim(),
+    quotation_terms:document.getElementById('set-terms').value.trim(),
+    payment_terms_text:document.getElementById('set-payterms').value.trim()
+  };
   if(s) await YS.update('payment_settings', s.id, patch); else await YS.insert('payment_settings', patch);
-  alert('✓ Payment settings saved.');
+  alert('✓ Settings saved.');
 }
 </script>
 </body>

@@ -174,11 +174,102 @@ const YS = (function () {
   function resetTeamPassword(id, password) { return workerFetch('/api/team/reset-password', { id, password }); }
   function toggleTeamMember(id) { return workerFetch('/api/team/toggle', { id }); }
 
+  // Renders a print-ready HTML quotation document (matches the letterhead
+  // format in Settings) — used by both the Admin and CRM portals to
+  // download/print a quotation built with the calculator. Opens in a new
+  // tab; the person uses the browser's Print dialog → "Save as PDF" to
+  // download it, or prints it directly to send.
+  function renderQuotationHTML(quotation, lead, settings) {
+    settings = settings || {};
+    const items = quotation.items || [];
+    const created = new Date(quotation.created_at);
+    const validUpto = new Date(created.getTime() + 21 * 86400000);
+    const fmtDate = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }).replace(/\//g, '-');
+    const quoteNo = 'Q-' + quotation.id.slice(0, 8).toUpperCase();
+
+    const rows = items.map((it, i) => `
+      <tr>
+        <td class="no">${i + 1}</td>
+        <td class="item"><b>${it.item || ''}</b>${it.material_spec ? `<div class="desc">${it.material_spec}</div>` : ''}</td>
+        <td class="cat">${(it.category || '').toUpperCase()}</td>
+        <td class="num">${it.length || ''}</td>
+        <td class="num">${it.height || ''}</td>
+        <td class="num">${it.unit_type === 'lump' ? 'Lum' : (it.qty ? Number(it.qty).toFixed(1) : '')}</td>
+        <td class="num">${it.rate || ''}</td>
+        <td class="num total">${Number(it.amount || 0).toLocaleString('en-IN')}</td>
+      </tr>`).join('');
+
+    const termsList = (settings.quotation_terms || '').split('\n').filter(Boolean)
+      .map(line => `<li>${line.replace(/^\d+\.\s*/, '')}</li>`).join('');
+    const paymentList = (settings.payment_terms_text || '').split('\n').filter(Boolean)
+      .map(line => `<li>${line}</li>`).join('');
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Quotation — ${lead ? lead.name : ''}</title>
+<style>
+  @page { margin: 18mm 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; color: #241A12; margin: 0; font-size: 12.5px; line-height: 1.45; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; background: #EFEAE0; padding: 16px 18px; border: 1px solid #d8cfba; }
+  .header img { height: 46px; }
+  .header .title { font-size: 22px; font-weight: 700; letter-spacing: 2px; align-self: center; }
+  .header .company { text-align: right; font-size: 11px; line-height: 1.5; }
+  .header .company b { font-size: 12.5px; }
+  .metabar { display: flex; justify-content: space-between; background: #F6F2E9; border: 1px solid #d8cfba; border-top: none; padding: 8px 18px; font-size: 11.5px; }
+  .client { padding: 10px 18px; border: 1px solid #d8cfba; border-top: none; font-size: 12.5px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 0; }
+  th { background: #EFEAE0; border: 1px solid #d8cfba; padding: 6px 8px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; text-align: left; }
+  td { border: 1px solid #e5ddc8; padding: 7px 8px; vertical-align: top; font-size: 11.5px; }
+  td.no { text-align: center; width: 28px; color: #6E5F84; }
+  td.cat { color: #6E5F84; font-size: 10.5px; white-space: nowrap; }
+  td.num { text-align: right; white-space: nowrap; }
+  td.total { font-weight: 700; }
+  .desc { color: #7a6f5c; font-size: 10px; margin-top: 2px; }
+  .subtotal td { border: none; border-top: 2px solid #241A12; font-weight: 700; font-size: 13px; padding-top: 8px; }
+  .section-title { font-weight: 700; margin: 18px 0 6px; font-size: 12.5px; }
+  ol, ul { margin: 0; padding-left: 18px; }
+  li { margin-bottom: 4px; font-size: 10.5px; }
+  .gst-note { margin-top: 14px; font-size: 10.5px; font-style: italic; color: #6E5F84; }
+  @media print { .no-print { display: none; } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <img src="logo.png" alt="Logo"/>
+    <div class="title">QUOTATION</div>
+    <div class="company">
+      <b>${settings.company_name || 'Your Company Name'}</b><br/>
+      ${settings.gstin ? `GSTIN ${settings.gstin}<br/>` : ''}
+      ${(settings.company_address || '').split(',').join(',<br/>')}
+    </div>
+  </div>
+  <div class="metabar">
+    <span>Quotation No. ${quoteNo}</span>
+    <span>Quotation Date: ${fmtDate(created)}</span>
+    <span>Valid date upto: ${fmtDate(validUpto)}</span>
+  </div>
+  <div class="client"><b>Client</b><br/>${lead ? lead.name : ''}</div>
+  <table>
+    <thead><tr><th>No</th><th>Items</th><th>Category</th><th>Length</th><th>Height</th><th>Qty/sqft</th><th>Rate</th><th>Total</th></tr></thead>
+    <tbody>
+      ${rows}
+      <tr class="subtotal"><td colspan="7" style="text-align:right;">SUBTOTAL</td><td class="num">₹${Number(quotation.total_amount || 0).toLocaleString('en-IN')}</td></tr>
+    </tbody>
+  </table>
+  ${termsList ? `<div class="section-title">Terms &amp; Conditions</div><ol>${termsList}</ol>` : ''}
+  ${paymentList ? `<div class="section-title">Payment Terms</div><ul>${paymentList}</ul>` : ''}
+  <div class="gst-note">Note: All rates are exclusive of GST @ 18%, which will be charged extra as applicable.</div>
+  <div class="no-print" style="margin-top:24px;text-align:center;">
+    <button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer;">🖨️ Print / Save as PDF</button>
+  </div>
+</body></html>`;
+  }
+
   return {
     init, ready, onChange, refresh,
     all, find, insert, update, remove, uploadFile,
     createProjectFromLead, DEFAULT_STAGES,
     login, customerLogin, setCustomerPin,
-    createTeamMember, updateTeamMember, resetTeamPassword, toggleTeamMember
+    createTeamMember, updateTeamMember, resetTeamPassword, toggleTeamMember,
+    renderQuotationHTML
   };
 })();
