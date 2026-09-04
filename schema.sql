@@ -155,6 +155,21 @@ create table design_files (
   created_at timestamptz default now()
 );
 
+-- Floor plans uploaded by CRM, auto-analyzed by Claude's vision/document
+-- reading to extract room names + dimensions, pre-filling the quotation
+-- builder. Extraction is always reviewed/edited by the designer before use.
+create table floor_plans (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete cascade,
+  file_url text not null,
+  file_name text,
+  status text default 'uploaded',  -- uploaded | analyzing | analyzed | failed
+  extracted_rooms jsonb,           -- [{label, category, length_ft, height_ft, raw_dimension_text}]
+  error_message text,
+  created_at timestamptz default now(),
+  analyzed_at timestamptz
+);
+
 create table quotations (
   id uuid primary key default gen_random_uuid(),
   project_id uuid references projects(id) on delete cascade,
@@ -303,6 +318,7 @@ create policy "anon full access" on projects for all using (true) with check (tr
 create policy "anon full access" on project_stages for all using (true) with check (true);
 create policy "anon full access" on stage_photos for all using (true) with check (true);
 create policy "anon full access" on design_files for all using (true) with check (true);
+create policy "anon full access" on floor_plans for all using (true) with check (true);
 create policy "anon full access" on quotations for all using (true) with check (true);
 create policy "anon full access" on payment_milestones for all using (true) with check (true);
 create policy "anon full access" on payments for all using (true) with check (true);
@@ -318,7 +334,7 @@ create policy "anon read only" on team_profiles for select using (true);
 alter publication supabase_realtime add table leads, lead_notes, projects,
   project_stages, stage_photos, design_files, quotations,
   payment_milestones, payments, catalog_materials, payment_settings, team_profiles,
-  quotation_catalog, client_checklist_items;
+  quotation_catalog, client_checklist_items, floor_plans;
 
 -- ============================================================================
 -- STORAGE — buckets for uploaded files (quotations, design documents)
@@ -340,3 +356,12 @@ create policy "anon upload design files" on storage.objects
   for insert to anon with check (bucket_id = 'design-files');
 create policy "anon read design files" on storage.objects
   for select to anon using (bucket_id = 'design-files');
+
+insert into storage.buckets (id, name, public)
+values ('floor-plans', 'floor-plans', true)
+on conflict (id) do nothing;
+
+create policy "anon upload floor plans" on storage.objects
+  for insert to anon with check (bucket_id = 'floor-plans');
+create policy "anon read floor plans" on storage.objects
+  for select to anon using (bucket_id = 'floor-plans');

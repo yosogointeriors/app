@@ -25,7 +25,7 @@ const YS = (function () {
     'design_files', 'quotations',
     'payment_milestones', 'payments',
     'catalog_materials', 'payment_settings', 'team_profiles', 'quotation_catalog',
-    'client_checklist_items'
+    'client_checklist_items', 'floor_plans'
   ];
 
   const DEFAULT_STAGES = [
@@ -174,6 +174,7 @@ const YS = (function () {
   function updateTeamMember({ id, name, email, phone, roles, city }) { return workerFetch('/api/team/update', { id, name, email, phone, roles, city }); }
   function resetTeamPassword(id, password) { return workerFetch('/api/team/reset-password', { id, password }); }
   function toggleTeamMember(id) { return workerFetch('/api/team/toggle', { id }); }
+  function analyzeFloorPlan(floor_plan_id) { return workerFetch('/api/floorplan/analyze', { floor_plan_id }); }
 
   // Renders a print-ready HTML quotation document (matches the letterhead
   // format in Settings) — used by both the Admin and CRM portals to
@@ -309,7 +310,7 @@ const YS = (function () {
     all, find, insert, update, remove, uploadFile,
     createProjectFromLead, DEFAULT_STAGES,
     login, customerLogin, setCustomerPin,
-    createTeamMember, updateTeamMember, resetTeamPassword, toggleTeamMember,
+    createTeamMember, updateTeamMember, resetTeamPassword, toggleTeamMember, analyzeFloorPlan,
     renderQuotationHTML
   };
 })();

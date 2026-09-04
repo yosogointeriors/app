@@ -266,6 +266,28 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   </div>
 </div>
 
+<!-- FLOOR PLAN UPLOAD MODAL -->
+<div class="modal-overlay" id="floorplan-upload-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Upload Floor Plan</h3><button class="modal-close" onclick="closeModal('floorplan-upload-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="fr"><label class="fl">Floor Plan File (PDF or image)</label><input type="file" id="fp-file" accept=".pdf,.png,.jpg,.jpeg"/></div>
+      <div style="font-size:11.5px;color:var(--mut);">AI will read room names and dimensions where printed on the plan — you'll review and edit everything before it's used in a quotation.</div>
+      <div id="fp-progress" style="font-size:12px;color:var(--mut);margin-top:10px;display:none;">Uploading…</div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('floorplan-upload-modal')">Cancel</button><button class="btn btn-c" onclick="saveFloorPlanUpload()">Upload &amp; Analyze</button></div>
+  </div>
+</div>
+
+<!-- FLOOR PLAN REVIEW MODAL -->
+<div class="modal-overlay" id="floorplan-review-modal">
+  <div class="modal-box wide">
+    <div class="modal-head"><h3>Review Extracted Rooms</h3><button class="modal-close" onclick="closeModal('floorplan-review-modal')">×</button></div>
+    <div class="modal-body" id="fp-review-body"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('floorplan-review-modal')">Close</button><button class="btn btn-c" onclick="addFloorPlanRoomsToQuotation()">→ Add Selected Rooms to Quotation</button></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="yosogo-data.js"></script>
@@ -360,6 +382,7 @@ function openLeadDetail(id){
   const proj = YS.all('projects').find(pr=>pr.lead_id===id);
   const designs = proj ? YS.all('design_files').filter(d=>d.project_id===proj.id) : [];
   const quotes = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id).sort((a,b)=>b.version-a.version) : [];
+  const floorPlans = YS.all('floor_plans').filter(f=>f.lead_id===id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const nextIdx = STATUS_ORDER.indexOf(l.status);
   const nextStatus = STATUS_ORDER[nextIdx+1];
 
@@ -381,6 +404,7 @@ function openLeadDetail(id){
       ${l.status!=='quotation_sent' && l.status!=='booked' ? `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Build Quotation</button>` : `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Revise Quotation</button>`}
       <button class="btn btn-sm" onclick="openOfflineQuoteModal('${id}')">📎 Upload Offline Quotation</button>
       <button class="btn btn-sm" onclick="uploadDesign('${id}')">🎨 Upload Design Document</button>
+      <button class="btn btn-sm" onclick="openFloorPlanUpload('${id}')">📐 Upload Floor Plan</button>
       <button class="btn btn-d btn-sm" onclick="markLost('${id}')">Mark Lost</button>
     </div>
     ${quotes.length ? `<div class="card-title" style="font-size:13px;margin-bottom:8px;">Quotation History</div>
@@ -414,6 +438,24 @@ function openLeadDetail(id){
         ${d.customer_comment ? `<div style="margin-top:8px;padding:8px;background:var(--surf2);border-radius:6px;font-size:11.5px;"><b>Customer comment:</b> ${d.customer_comment}</div>` : ''}
       </div>`;
     }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
+    <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Floor Plans</div>
+    <div style="margin-bottom:8px;">${floorPlans.map(f=>{
+      const statusPill = f.status==='analyzed' ? `<span class="pill p-ok">✓ ${(f.extracted_rooms||[]).length} rooms found</span>`
+        : f.status==='analyzing' ? '<span class="pill p-wrn">Analyzing…</span>'
+        : f.status==='failed' ? '<span class="pill p-no">Failed</span>'
+        : '<span class="pill p-inf">Uploaded</span>';
+      return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div>
+          <a href="${f.file_url}" target="_blank" style="font-size:12.5px;font-weight:600;">${f.file_name||'Floor Plan'}</a>
+          ${f.status==='failed' && f.error_message ? `<div style="font-size:11px;color:var(--no-tx);">${f.error_message}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${statusPill}
+          ${f.status==='analyzed' ? `<button class="btn btn-xs" onclick="openFloorPlanReview('${f.id}')">Review</button>` : ''}
+          ${f.status==='failed' ? `<button class="btn btn-xs" onclick="retryFloorPlanAnalysis('${f.id}')">Retry</button>` : ''}
+        </div>
+      </div>`;
+    }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
     <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Notes &amp; Site Visit Log</div>
     <div class="fr" style="display:flex;gap:8px;"><input type="text" id="lm-note-text" placeholder="e.g. Site visit done — 3 rooms measured, kitchen 9x7ft…" style="flex:1;"/><button class="btn btn-p btn-sm" onclick="addLeadNote('${id}')">Add</button></div>
     <div>${notes.map(n=>`<div class="note-item">${n.note}<div class="note-meta">${new Date(n.created_at).toLocaleString('en-IN')}</div></div>`).join('') || '<div style="color:var(--mut);font-size:12.5px;">No notes yet.</div>'}</div>
@@ -445,6 +487,107 @@ async function addLeadNote(id){
   await YS.insert('lead_notes',{lead_id:id, note:txt, added_by_type:'team', added_by_id:session.id});
   openLeadDetail(id);
 }
+let CURRENT_FLOORPLAN_ID = null;
+function openFloorPlanUpload(id){
+  DESIGN_UPLOAD_LEAD_ID = id; // reuse the same "which lead" variable across upload modals
+  document.getElementById('fp-file').value = '';
+  document.getElementById('fp-progress').style.display = 'none';
+  document.getElementById('floorplan-upload-modal').classList.add('open');
+}
+async function saveFloorPlanUpload(){
+  const id = DESIGN_UPLOAD_LEAD_ID;
+  const fileInput = document.getElementById('fp-file');
+  const file = fileInput.files[0];
+  if(!file){ alert('Choose a floor plan file first.'); return; }
+  const progressEl = document.getElementById('fp-progress');
+  progressEl.style.display = 'block';
+  progressEl.textContent = 'Uploading…';
+  try{
+    const { url, name } = await YS.uploadFile('floor-plans', file);
+    const fp = await YS.insert('floor_plans', { lead_id: id, file_url: url, file_name: name, status: 'uploaded' });
+    closeModal('floorplan-upload-modal');
+    openLeadDetail(id);
+    progressEl.textContent = 'Reading floor plan with AI…';
+    try{
+      const { rooms } = await YS.analyzeFloorPlan(fp.id);
+      await YS.refresh('floor_plans');
+      openLeadDetail(id);
+      openFloorPlanReview(fp.id);
+    }catch(e){
+      await YS.refresh('floor_plans');
+      openLeadDetail(id);
+      alert('Upload succeeded, but analysis failed: '+e.message+'\n\nYou can retry from the Floor Plans list.');
+    }
+  }catch(e){
+    alert('Upload failed: '+e.message);
+  }finally{
+    progressEl.style.display = 'none';
+  }
+}
+async function retryFloorPlanAnalysis(floorPlanId){
+  try{
+    await YS.analyzeFloorPlan(floorPlanId);
+    await YS.refresh('floor_plans');
+    renderAll(); openLeadDetail(CURRENT_LEAD_ID);
+    openFloorPlanReview(floorPlanId);
+  }catch(e){
+    await YS.refresh('floor_plans');
+    alert('Analysis failed: '+e.message);
+  }
+}
+function openFloorPlanReview(floorPlanId){
+  CURRENT_FLOORPLAN_ID = floorPlanId;
+  const fp = YS.find('floor_plans', floorPlanId);
+  if(!fp){ alert('Floor plan not found.'); return; }
+  const rooms = fp.extracted_rooms || [];
+  document.getElementById('fp-review-body').innerHTML = `
+    <div style="font-size:12px;color:var(--mut);margin-bottom:12px;">Uncheck anything wrong, fix any label/dimension, then add the selected rooms to a quotation. Nothing here is final until you review it.</div>
+    <table style="width:100%;"><thead><tr><th style="width:26px;"></th><th>Label (as printed)</th><th>Room</th><th>Length (ft)</th><th>Height (ft)</th></tr></thead>
+    <tbody>${rooms.map((r,i)=>`
+      <tr>
+        <td><input type="checkbox" id="fpr-inc-${i}" checked/></td>
+        <td><input type="text" id="fpr-label-${i}" value="${(r.label||'').replace(/"/g,'&quot;')}"/></td>
+        <td><select id="fpr-cat-${i}">
+          <option value="">— No room —</option>
+          ${ROOM_LIST.map(rm=>`<option value="${rm}" ${r.category===rm?'selected':''}>${rm}</option>`).join('')}
+        </select></td>
+        <td><input type="number" id="fpr-len-${i}" value="${r.length_ft??''}" style="width:80px;"/></td>
+        <td><input type="number" id="fpr-hgt-${i}" value="${r.height_ft??''}" style="width:80px;"/></td>
+      </tr>`).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:20px;">No rooms were read from this plan.</td></tr>`}
+    </tbody></table>
+  `;
+  document.getElementById('floorplan-review-modal').classList.add('open');
+}
+function addFloorPlanRoomsToQuotation(){
+  const fp = YS.find('floor_plans', CURRENT_FLOORPLAN_ID);
+  const rooms = fp.extracted_rooms || [];
+  const selected = [];
+  rooms.forEach((r,i)=>{
+    const inc = document.getElementById('fpr-inc-'+i);
+    if(!inc || !inc.checked) return;
+    const label = document.getElementById('fpr-label-'+i).value.trim();
+    const category = document.getElementById('fpr-cat-'+i).value;
+    const length = Number(document.getElementById('fpr-len-'+i).value)||0;
+    const height = Number(document.getElementById('fpr-hgt-'+i).value)||0;
+    if(!category){ return; } // skip rooms with no room assigned — nothing to add
+    selected.push({
+      item: label || category, category, material_spec: '',
+      unit_type: 'sqft', length, height, qty: length*height, rate: 0, amount: 0,
+      note: 'From floor plan — pick the actual catalog item and confirm rate'
+    });
+  });
+  if(!selected.length){ alert('Select at least one room with a room assigned.'); return; }
+  closeModal('floorplan-review-modal');
+  CURRENT_LEAD_ID = fp.lead_id;
+  QITEMS = selected;
+  document.getElementById('q-overall-notes').value = '';
+  document.getElementById('q-discount').value = 0;
+  document.getElementById('qc-room').value = '';
+  renderQCPicker();
+  renderQItems();
+  document.getElementById('quote-modal').classList.add('open');
+}
+
 let DESIGN_UPLOAD_LEAD_ID = null;
 function uploadDesign(id){
   DESIGN_UPLOAD_LEAD_ID = id;
