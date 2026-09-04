@@ -73,6 +73,7 @@ create table leads (
   status text default 'new',
   assigned_to uuid references team_accounts(id),
   partner_id uuid references team_accounts(id),  -- referring/business partner (distinct from assigned designer)
+  conversion_probability int,      -- 0-100, manually set by the sales/design team; null = use the status-based default suggestion
   lost_reason text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()

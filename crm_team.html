@@ -132,7 +132,8 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   <aside class="sidebar">
     <div class="sidebar-logo"><img src="logo.png" alt="YOSOGO" style="height:26px;width:auto;display:block;"/><div class="sidebar-logo-sub">CRM &amp; Design Team</div></div>
     <nav class="nav" id="nav">
-      <div class="nav-item active" data-tab="pipeline" onclick="showTab('pipeline')">📋 My Pipeline</div>
+      <div class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')">📊 Dashboard</div>
+      <div class="nav-item" data-tab="pipeline" onclick="showTab('pipeline')">📋 My Pipeline</div>
       <div class="nav-item" data-tab="projects" onclick="showTab('projects')">🏗 My Projects</div>
       <div class="nav-item" data-tab="performance" onclick="showTab('performance')">📈 Performance</div>
     </nav>
@@ -144,10 +145,16 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   </aside>
 
   <div class="main">
-    <div class="topbar"><div class="topbar-title" id="topbar-title">My Pipeline</div><a href="index.html" class="btn btn-sm">← Portal Hub</a></div>
+    <div class="topbar"><div class="topbar-title" id="topbar-title">Dashboard</div><a href="index.html" class="btn btn-sm">← Portal Hub</a></div>
     <div class="content">
 
-      <div class="tab active" id="tab-pipeline">
+      <div class="tab active" id="tab-dashboard">
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub">Live overview across all leads and projects.</div>
+        <div class="stat-grid" id="dash-stats" style="grid-template-columns:repeat(5,1fr);"></div>
+      </div>
+
+      <div class="tab" id="tab-pipeline">
         <div class="page-title" id="pipe-title">My Pipeline</div>
         <div class="page-sub">Leads assigned to you — move each from first contact through to booking.</div>
         <div class="stat-grid" id="pipe-stats"></div>
@@ -166,7 +173,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           </select>
         </div>
         <div class="card" style="padding:0;overflow-x:auto;">
-          <table><thead><tr><th>Lead</th><th>Project</th><th>Source</th><th>Status</th><th>Quotation</th><th>Last Update</th></tr></thead><tbody id="pipe-tbody"></tbody></table>
+          <table><thead><tr><th>Lead</th><th>Project</th><th>Source</th><th>Status</th><th>Likelihood</th><th>Quotation</th><th>Last Update</th></tr></thead><tbody id="pipe-tbody"></tbody></table>
         </div>
       </div>
 
@@ -324,7 +331,7 @@ function logout(){ session=null; document.getElementById('app-wrap').classList.r
 function showTab(tab){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));
-  document.getElementById('topbar-title').textContent = {pipeline:'My Pipeline',projects:'My Projects',performance:'Performance'}[tab];
+  document.getElementById('topbar-title').textContent = {dashboard:'Dashboard',pipeline:'My Pipeline',projects:'My Projects',performance:'Performance'}[tab];
   renderAll();
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -332,6 +339,11 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 const STATUS_LABEL = {new:'New',contacted:'Contacted',site_visit_scheduled:'Site Visit Scheduled',site_visit_done:'Site Visit Done',design_presented:'Design Presented',quotation_sent:'Quotation Sent',negotiation:'Negotiation',booked:'Booked',lost:'Lost'};
 const STATUS_PILL = {new:'p-inf',contacted:'p-inf',site_visit_scheduled:'p-wrn',site_visit_done:'p-wrn',design_presented:'p-wrn',quotation_sent:'p-wrn',negotiation:'p-wrn',booked:'p-ok',lost:'p-no'};
 const STATUS_ORDER = ['new','contacted','site_visit_scheduled','site_visit_done','design_presented','quotation_sent','negotiation','booked'];
+// Suggested likelihood-to-convert by stage, used only when a lead has no
+// manually-set value yet — the sales/design person can always override.
+const STATUS_PROBABILITY = {new:10,contacted:20,site_visit_scheduled:30,site_visit_done:40,design_presented:50,quotation_sent:60,negotiation:75,booked:100,lost:0};
+function leadProbability(l){ return (l.conversion_probability===null || l.conversion_probability===undefined) ? (STATUS_PROBABILITY[l.status] ?? 10) : l.conversion_probability; }
+function probabilityPillClass(p){ return p>=70 ? 'p-ok' : p>=30 ? 'p-wrn' : 'p-no'; }
 
 function myLeads(){
   // Everyone on the CRM/Design team currently shares responsibilities across
@@ -340,7 +352,26 @@ function myLeads(){
   return YS.all('leads');
 }
 
-function renderAll(){ renderPipeline(); renderProjects(); renderPerformance(); }
+function renderAll(){ renderCrmDashboard(); renderPipeline(); renderProjects(); renderPerformance(); }
+
+function renderCrmDashboard(){
+  const el = document.getElementById('dash-stats');
+  if(!el) return;
+  const leads = YS.all('leads');
+  const projects = YS.all('projects');
+  const payments = YS.all('payments');
+  const totalRevenue = payments.filter(p=>p.verified).reduce((s,p)=>s+Number(p.amount||0),0);
+  const pipelineValue = YS.all('quotations').filter(q=>q.status!=='draft').reduce((s,q)=>s+Number(q.total_amount||0),0);
+  const today = new Date().toDateString();
+  const newToday = leads.filter(l=>new Date(l.created_at).toDateString()===today).length;
+  el.innerHTML = `
+    <div class="stat-card"><div class="stat-num">${leads.length}</div><div class="stat-lbl">Total Leads</div></div>
+    <div class="stat-card"><div class="stat-num">${newToday}</div><div class="stat-lbl">New Today</div></div>
+    <div class="stat-card"><div class="stat-num">${projects.filter(p=>p.status==='active').length}</div><div class="stat-lbl">Active Projects</div></div>
+    <div class="stat-card"><div class="stat-num">₹${(totalRevenue/100000).toFixed(1)}L</div><div class="stat-lbl">Revenue Collected</div></div>
+    <div class="stat-card"><div class="stat-num">₹${(pipelineValue/100000).toFixed(1)}L</div><div class="stat-lbl">Quoted Pipeline</div></div>
+  `;
+}
 
 function renderPipeline(){
   const fStatus = document.getElementById('f-status')?.value||'';
@@ -364,10 +395,11 @@ function renderPipeline(){
       <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
       <td>${l.source==='facebook_ad'?'📘 FB Ad':l.source}</td>
       <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span>${l.site_ready===true?' <span class="pill p-ok">✓ Ready</span>':''}</td>
+      <td><span class="pill ${probabilityPillClass(leadProbability(l))}">${leadProbability(l)}%</span></td>
       <td>${q ? `₹${Number(q.total_amount||0).toLocaleString('en-IN')}<br><span style="color:var(--mut);font-size:10.5px;cursor:pointer;text-decoration:underline;" onclick="event.stopPropagation();${q.source==='offline'?`window.open('${q.file_url}','_blank')`:`downloadQuotationPDF('${q.id}')`}">${q.source==='offline'?'View File':'Download PDF'}</span>` : '<span style="color:var(--hnt);">—</span>'}</td>
       <td style="color:var(--mut);font-size:11.5px;">${new Date(l.updated_at||l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:30px;">No leads assigned to you yet.</td></tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px;">No leads assigned to you yet.</td></tr>`;
 }
 function latestQuotation(leadId){
   const proj = YS.all('projects').find(p=>p.lead_id===leadId);
@@ -397,6 +429,15 @@ function openLeadDetail(id){
       <div><span class="fl">Exact Location</span>${l.exact_location||'—'}</div>
       <div><span class="fl">Site Ready</span>${l.site_ready===true?'<span class="pill p-ok">✓ Yes</span>':l.site_ready===false?'<span class="pill p-wrn">Not yet</span>':'—'}</div>
       <div><span class="fl">Checklist</span>${(()=>{ const items=YS.all('client_checklist_items').filter(c=>c.lead_id===id); const req=items.filter(c=>c.required===true).length; return items.length ? `<span class="pill p-inf">${req} items required</span>` : '<span style="color:var(--hnt);">Not started</span>'; })()}</div>
+      <div>
+        <span class="fl">Likelihood to Convert</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="number" id="lm-probability" min="0" max="100" value="${leadProbability(l)}" style="width:70px;"/>
+          <span style="font-size:12px;color:var(--mut);">%</span>
+          <button class="btn btn-xs" onclick="saveLeadProbability('${id}')">Save</button>
+          ${l.conversion_probability===null||l.conversion_probability===undefined ? `<span style="font-size:10.5px;color:var(--hnt);">(suggested from stage)</span>` : ''}
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
       ${nextStatus ? `<button class="btn btn-c btn-sm" onclick="advanceStatus('${id}','${nextStatus}')">Move to "${STATUS_LABEL[nextStatus]}" →</button>` : ''}
@@ -480,6 +521,11 @@ async function markLost(id){
   if(reason===null) return;
   await YS.update('leads', id, {status:'lost', lost_reason:reason});
   renderAll(); closeModal('lead-modal');
+}
+async function saveLeadProbability(id){
+  const val = Math.max(0, Math.min(100, Number(document.getElementById('lm-probability').value)||0));
+  await YS.update('leads', id, {conversion_probability: val});
+  renderAll(); openLeadDetail(id);
 }
 async function addLeadNote(id){
   const txt = document.getElementById('lm-note-text').value.trim();
