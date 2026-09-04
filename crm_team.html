@@ -535,25 +535,40 @@ async function retryFloorPlanAnalysis(floorPlanId){
     alert('Analysis failed: '+e.message);
   }
 }
+function floorPlanItemOptionsHTML(room, selectedId){
+  if(!room) return '<option value="">— choose room first —</option>';
+  const cats = ROOM_CATEGORY_MAP[room] || [room.toLowerCase()];
+  const items = YS.all('quotation_catalog').filter(q=>q.active && (cats.includes((q.category||'').toLowerCase()) || q.default_include))
+    .sort((a,b)=>(b.default_include-a.default_include)||a.item_name.localeCompare(b.item_name));
+  if(!items.length) return '<option value="">No items yet for this room — add some in Admin</option>';
+  return '<option value="">— Choose item —</option>' + items.map(q=>
+    `<option value="${q.id}" ${q.id===selectedId?'selected':''}>${q.default_include?'⭐ ':''}${q.item_name}${q.material_spec?' — '+q.material_spec:''} (₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''})</option>`
+  ).join('');
+}
+function updateFpRoomItems(i){
+  const room = document.getElementById('fpr-cat-'+i).value;
+  document.getElementById('fpr-item-'+i).innerHTML = floorPlanItemOptionsHTML(room, null);
+}
 function openFloorPlanReview(floorPlanId){
   CURRENT_FLOORPLAN_ID = floorPlanId;
   const fp = YS.find('floor_plans', floorPlanId);
   if(!fp){ alert('Floor plan not found.'); return; }
   const rooms = fp.extracted_rooms || [];
   document.getElementById('fp-review-body').innerHTML = `
-    <div style="font-size:12px;color:var(--mut);margin-bottom:12px;">Uncheck anything wrong, fix any label/dimension, then add the selected rooms to a quotation. Nothing here is final until you review it.</div>
-    <table style="width:100%;"><thead><tr><th style="width:26px;"></th><th>Label (as printed)</th><th>Room</th><th>Length (ft)</th><th>Height (ft)</th></tr></thead>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:12px;">Uncheck anything wrong, fix the room/item/dimensions, then add to a quotation with real pricing. Nothing here is final until you review it — need more than one item per room? Add the rest from the catalog picker after.</div>
+    <table style="width:100%;"><thead><tr><th style="width:26px;"></th><th>Label</th><th>Room</th><th>Item (material/finish)</th><th>Length</th><th>Height</th></tr></thead>
     <tbody>${rooms.map((r,i)=>`
       <tr>
         <td><input type="checkbox" id="fpr-inc-${i}" checked/></td>
-        <td><input type="text" id="fpr-label-${i}" value="${(r.label||'').replace(/"/g,'&quot;')}"/></td>
-        <td><select id="fpr-cat-${i}">
+        <td><input type="text" id="fpr-label-${i}" value="${(r.label||'').replace(/"/g,'&quot;')}" style="width:110px;"/></td>
+        <td><select id="fpr-cat-${i}" onchange="updateFpRoomItems(${i})">
           <option value="">— No room —</option>
           ${ROOM_LIST.map(rm=>`<option value="${rm}" ${r.category===rm?'selected':''}>${rm}</option>`).join('')}
         </select></td>
-        <td><input type="number" id="fpr-len-${i}" value="${r.length_ft??''}" style="width:80px;"/></td>
-        <td><input type="number" id="fpr-hgt-${i}" value="${r.height_ft??''}" style="width:80px;"/></td>
-      </tr>`).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:20px;">No rooms were read from this plan.</td></tr>`}
+        <td><select id="fpr-item-${i}" style="min-width:220px;">${floorPlanItemOptionsHTML(r.category, null)}</select></td>
+        <td><input type="number" id="fpr-len-${i}" value="${r.length_ft??''}" style="width:70px;"/></td>
+        <td><input type="number" id="fpr-hgt-${i}" value="${r.height_ft??''}" style="width:70px;"/></td>
+      </tr>`).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:20px;">No rooms were read from this plan.</td></tr>`}
     </tbody></table>
   `;
   document.getElementById('floorplan-review-modal').classList.add('open');
@@ -562,21 +577,31 @@ function addFloorPlanRoomsToQuotation(){
   const fp = YS.find('floor_plans', CURRENT_FLOORPLAN_ID);
   const rooms = fp.extracted_rooms || [];
   const selected = [];
+  let skippedNoItem = 0;
   rooms.forEach((r,i)=>{
     const inc = document.getElementById('fpr-inc-'+i);
     if(!inc || !inc.checked) return;
-    const label = document.getElementById('fpr-label-'+i).value.trim();
-    const category = document.getElementById('fpr-cat-'+i).value;
+    const room = document.getElementById('fpr-cat-'+i).value;
+    const itemId = document.getElementById('fpr-item-'+i).value;
     const length = Number(document.getElementById('fpr-len-'+i).value)||0;
     const height = Number(document.getElementById('fpr-hgt-'+i).value)||0;
-    if(!category){ return; } // skip rooms with no room assigned — nothing to add
+    if(!room || !itemId){ if(inc.checked) skippedNoItem++; return; }
+    const catalogItem = YS.find('quotation_catalog', itemId);
+    if(!catalogItem) return;
     selected.push({
-      item: label || category, category, material_spec: '',
-      unit_type: 'sqft', length, height, qty: length*height, rate: 0, amount: 0,
-      note: 'From floor plan — pick the actual catalog item and confirm rate'
+      item: catalogItem.item_name, category: room, material_spec: catalogItem.material_spec||'',
+      unit_type: catalogItem.unit_type,
+      length: catalogItem.unit_type==='sqft'?length:null,
+      height: catalogItem.unit_type==='sqft'?height:null,
+      qty: catalogItem.unit_type==='sqft' ? length*height : 1,
+      rate: Number(catalogItem.rate), amount: 0,
+      note: 'From floor plan (' + (length&&height ? length+'ft × '+height+'ft' : 'size not detected') + ')'
     });
   });
-  if(!selected.length){ alert('Select at least one room with a room assigned.'); return; }
+  if(!selected.length){
+    alert(skippedNoItem ? 'Pick an item for at least one checked room before adding.' : 'Select at least one room with a room and item chosen.');
+    return;
+  }
   closeModal('floorplan-review-modal');
   CURRENT_LEAD_ID = fp.lead_id;
   QITEMS = selected;
