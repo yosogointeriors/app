@@ -511,6 +511,45 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   </div>
 </div>
 
+<!-- EDIT DESIGN CATALOGUE ITEM MODAL -->
+<div class="modal-overlay" id="edit-design-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Edit Design</h3><button class="modal-close" onclick="closeModal('edit-design-modal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edc-id"/>
+      <img id="edc-current-image" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:12px;"/>
+      <div class="form-2col">
+        <div class="fr"><label class="fl">Category</label>
+          <select id="edc-category">
+            <option value="Kitchen">Kitchen</option>
+            <option value="TV Unit">TV Unit</option>
+            <option value="Wardrobe">Wardrobe</option>
+            <option value="False Ceiling">False Ceiling</option>
+            <option value="Pooja Unit">Pooja Unit</option>
+            <option value="Crockery Unit">Crockery Unit</option>
+            <option value="Bed">Bed</option>
+            <option value="Side Unit">Side Unit</option>
+            <option value="Kitchen Accessories">Kitchen Accessories</option>
+            <option value="Partition">Partition</option>
+            <option value="Other">Other (type below)</option>
+          </select>
+        </div>
+        <div class="fr"><label class="fl">Custom Category (if "Other")</label><input type="text" id="edc-category-custom" placeholder="Optional"/></div>
+      </div>
+      <div class="fr"><label class="fl">Title</label><input type="text" id="edc-title"/></div>
+      <div class="fr"><label class="fl">Description</label><textarea id="edc-desc"></textarea></div>
+      <div class="fr"><label class="fl">Replace Image (optional — leave blank to keep the current one)</label><input type="file" id="edc-file" accept=".png,.jpg,.jpeg,.webp"/></div>
+      <div id="edc-progress" style="font-size:12px;color:var(--mut);display:none;">Uploading…</div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('edit-design-modal')">Cancel</button><button class="btn btn-c" onclick="saveEditDesign()">Save Changes</button></div>
+  </div>
+</div>
+
+<!-- IMAGE LIGHTBOX (click any design thumbnail to view full-size) -->
+<div class="modal-overlay" id="image-lightbox" onclick="closeModal('image-lightbox')" style="align-items:center;">
+  <img id="lightbox-img" style="max-width:90vw;max-height:88vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.4);"/>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
@@ -929,23 +968,35 @@ async function deleteQuotationCatalogItem(id){
   if(confirm('Remove this line item from the calculator?')){ await YS.remove('quotation_catalog', id); renderQuotationCatalog(); }
 }
 
+function openImageLightbox(url){
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('image-lightbox').classList.add('open');
+}
 function renderDesignCatalog(){
   const filter = document.getElementById('dc-filter')?.value || '';
   let items = YS.all('design_catalog').sort((a,b)=>a.category.localeCompare(b.category)||new Date(b.created_at)-new Date(a.created_at));
   if(filter) items = items.filter(d=>d.category===filter);
-  document.getElementById('designcat-grid').innerHTML = items.map(d=>`
-    <div style="border:0.5px solid var(--bdr);border-radius:10px;overflow:hidden;background:var(--surf);">
-      <img src="${d.image_url}" style="width:100%;height:140px;object-fit:cover;display:block;"/>
-      <div style="padding:10px;">
-        <div style="font-size:11px;color:var(--copper);font-weight:700;text-transform:uppercase;letter-spacing:.03em;">${d.category}</div>
-        <div style="font-size:12.5px;font-weight:600;margin:2px 0 6px;">${d.title}</div>
-        ${d.description?`<div style="font-size:11px;color:var(--mut);margin-bottom:8px;">${d.description}</div>`:''}
-        <div style="display:flex;gap:6px;">
-          <span class="pill ${d.active?'p-ok':'p-no'}" style="cursor:pointer;" onclick="toggleDesignCatalogItem('${d.id}')">${d.active?'Active':'Hidden'}</span>
-          <button class="btn btn-d btn-xs" onclick="deleteDesignCatalogItem('${d.id}')">Remove</button>
+  const grouped = {}; const order = [];
+  items.forEach(d=>{ if(!grouped[d.category]){ grouped[d.category]=[]; order.push(d.category); } grouped[d.category].push(d); });
+  document.getElementById('designcat-grid').innerHTML = order.map(cat => `
+    <div style="grid-column:1/-1;margin-top:18px;display:flex;align-items:baseline;gap:8px;border-bottom:1px solid var(--bdr);padding-bottom:6px;">
+      <h3 style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--copper);">${cat}</h3>
+      <span style="font-size:11.5px;color:var(--mut);">${grouped[cat].length} design${grouped[cat].length>1?'s':''}</span>
+    </div>
+    ${grouped[cat].map(d=>`
+      <div style="border:0.5px solid var(--bdr);border-radius:10px;overflow:hidden;background:var(--surf);">
+        <img src="${d.image_url}" style="width:100%;height:140px;object-fit:cover;display:block;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')"/>
+        <div style="padding:10px;">
+          <div style="font-size:12.5px;font-weight:600;margin-bottom:6px;">${d.title}</div>
+          ${d.description?`<div style="font-size:11px;color:var(--mut);margin-bottom:8px;">${d.description}</div>`:''}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="pill ${d.active?'p-ok':'p-no'}" style="cursor:pointer;" onclick="toggleDesignCatalogItem('${d.id}')">${d.active?'Active':'Hidden'}</span>
+            <button class="btn btn-xs" onclick="openEditDesignModal('${d.id}')">Edit</button>
+            <button class="btn btn-d btn-xs" onclick="deleteDesignCatalogItem('${d.id}')">Remove</button>
+          </div>
         </div>
       </div>
-    </div>
+    `).join('')}
   `).join('') || `<div style="grid-column:1/-1;text-align:center;color:var(--mut);padding:30px;">No designs uploaded yet.</div>`;
 }
 async function addDesignCatalogItem(){
@@ -1045,6 +1096,55 @@ async function deleteDesignCatalogItem(id){
     await YS.remove('design_catalog', id);
     renderDesignCatalog();
   }
+}
+function openEditDesignModal(id){
+  const d = YS.find('design_catalog', id);
+  if(!d){ alert('Design not found.'); return; }
+  document.getElementById('edc-id').value = d.id;
+  document.getElementById('edc-current-image').src = d.image_url;
+  document.getElementById('edc-title').value = d.title || '';
+  document.getElementById('edc-desc').value = d.description || '';
+  document.getElementById('edc-file').value = '';
+  document.getElementById('edc-progress').style.display = 'none';
+  const catSelect = document.getElementById('edc-category');
+  const knownCats = Array.from(catSelect.options).map(o=>o.value);
+  if(knownCats.includes(d.category)){
+    catSelect.value = d.category;
+    document.getElementById('edc-category-custom').value = '';
+  } else {
+    catSelect.value = 'Other';
+    document.getElementById('edc-category-custom').value = d.category || '';
+  }
+  document.getElementById('edit-design-modal').classList.add('open');
+}
+async function saveEditDesign(){
+  const id = document.getElementById('edc-id').value;
+  const catSelect = document.getElementById('edc-category').value;
+  const category = catSelect==='Other' ? document.getElementById('edc-category-custom').value.trim() : catSelect;
+  const title = document.getElementById('edc-title').value.trim();
+  if(!category || !title){ alert('Category and title are required.'); return; }
+  const patch = {
+    category, title,
+    description: document.getElementById('edc-desc').value.trim()
+  };
+  const fileInput = document.getElementById('edc-file');
+  const newFile = fileInput.files[0];
+  if(newFile){
+    const progressEl = document.getElementById('edc-progress');
+    progressEl.style.display = 'block';
+    try{
+      const { url } = await YS.uploadFile('design-catalog', newFile);
+      patch.image_url = url;
+    }catch(e){
+      alert('Image upload failed: '+e.message);
+      progressEl.style.display = 'none';
+      return;
+    }
+    progressEl.style.display = 'none';
+  }
+  await YS.update('design_catalog', id, patch);
+  closeModal('edit-design-modal');
+  renderDesignCatalog();
 }
 
 function renderTeams(){
