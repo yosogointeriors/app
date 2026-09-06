@@ -956,7 +956,13 @@ function addCatalogQItem(){
   renderQItems();
 }
 function addCustomQItemRow(){
-  QITEMS.push({item:'', category:'', material_spec:'', unit_type:'custom', qty:1, rate:0, amount:0});
+  QITEMS.push({item:'', category:'', material_spec:'', unit_type:'lump', isCustom:true, length:null, height:null, qty:1, rate:0, amount:0});
+  renderQItems();
+}
+function setCustomItemType(i, type){
+  QITEMS[i].unit_type = type;
+  if(type==='sqft'){ QITEMS[i].length = QITEMS[i].length||0; QITEMS[i].height = QITEMS[i].height||0; QITEMS[i].qty = QITEMS[i].length*QITEMS[i].height; }
+  else { QITEMS[i].length = null; QITEMS[i].height = null; QITEMS[i].qty = QITEMS[i].qty||1; }
   renderQItems();
 }
 function updateQItemDims(i, field, val){
@@ -966,9 +972,15 @@ function updateQItemDims(i, field, val){
 }
 function renderQItems(){
   document.getElementById('qitems').innerHTML = QITEMS.map((it,i)=>{
+    // Upgrade any legacy custom items (old unit_type:'custom' scheme) in place
+    // so they render with the same editable Lump/sqft toggle as new ones.
+    if(it.unit_type==='custom'){ it.isCustom = true; it.unit_type = 'lump'; if(it.qty===undefined) it.qty = 1; }
+    const isCustom = !!it.isCustom;
     const amount = (Number(it.qty)||0)*(Number(it.rate)||0);
     it.amount = amount;
-    const header = `<div style="font-size:12.5px;font-weight:600;">${it.item||'(unnamed item)'}${it.material_spec?' — '+it.material_spec:''}</div>`;
+    const header = isCustom
+      ? `<input type="text" value="${(it.item||'').replace(/"/g,'&quot;')}" placeholder="Item name" oninput="QITEMS[${i}].item=this.value;renderQItems();" style="width:100%;font-weight:600;font-size:12.5px;"/>`
+      : `<div style="font-size:12.5px;font-weight:600;">${it.item||'(unnamed item)'}${it.material_spec?' — '+it.material_spec:''}</div>`;
     let fields;
     if(it.unit_type==='sqft'){
       fields = `
@@ -976,16 +988,11 @@ function renderQItems(){
         <input type="number" value="${it.height}" placeholder="Height (ft)" oninput="updateQItemDims(${i},'height',this.value)"/>
         <input type="text" value="${(Number(it.qty)||0).toFixed(1)} sqft" readonly style="background:var(--surf3);"/>
         <input type="number" value="${it.rate}" placeholder="Rate ₹/sqft" oninput="QITEMS[${i}].rate=Number(this.value);renderQItems();"/>`;
-    } else if(it.unit_type==='lump'){
+    } else {
       fields = `
         <input type="text" value="Lump sum" readonly style="background:var(--surf3);"/>
         <input type="number" value="${it.qty}" placeholder="Qty" oninput="QITEMS[${i}].qty=Number(this.value);renderQItems();"/>
         <input type="text" value="—" readonly style="background:var(--surf3);"/>
-        <input type="number" value="${it.rate}" placeholder="Rate ₹" oninput="QITEMS[${i}].rate=Number(this.value);renderQItems();"/>`;
-    } else {
-      fields = `
-        <input type="text" value="${it.item}" placeholder="Item name" oninput="QITEMS[${i}].item=this.value;renderQItems();" style="grid-column:span 2;"/>
-        <input type="number" value="${it.qty}" placeholder="Qty" oninput="QITEMS[${i}].qty=Number(this.value);renderQItems();"/>
         <input type="number" value="${it.rate}" placeholder="Rate ₹" oninput="QITEMS[${i}].rate=Number(this.value);renderQItems();"/>`;
     }
     const roomPicker = `<select onchange="QITEMS[${i}].category=this.value;renderQItems();" style="width:auto;font-size:11px;padding:3px 6px;">
@@ -993,14 +1000,18 @@ function renderQItems(){
       ${ROOM_LIST.map(r=>`<option value="${r}" ${it.category===r?'selected':''}>${r}</option>`).join('')}
       ${it.category && !ROOM_LIST.includes(it.category) ? `<option value="${it.category}" selected>${it.category}</option>` : ''}
     </select>`;
+    const typePicker = isCustom ? `<select onchange="setCustomItemType(${i},this.value)" style="width:auto;font-size:11px;padding:3px 6px;">
+      <option value="lump" ${it.unit_type==='lump'?'selected':''}>Lump Sum</option>
+      <option value="sqft" ${it.unit_type==='sqft'?'selected':''}>L × B (sqft)</option>
+    </select>` : '';
     return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:10px;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-        <div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:10px;">
+        <div style="flex:1;">
           ${header}
-          <div style="margin-top:4px;display:flex;align-items:center;gap:5px;">🏠 ${roomPicker}</div>
+          <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">🏠 ${roomPicker} ${typePicker}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
-          <b style="font-size:13px;">₹${amount.toLocaleString('en-IN')}</b>
+          <b style="font-size:13px;white-space:nowrap;">₹${amount.toLocaleString('en-IN')}</b>
           <button class="btn btn-d btn-xs" onclick="QITEMS.splice(${i},1);renderQItems();">✕</button>
         </div>
       </div>

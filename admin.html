@@ -338,6 +338,32 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           <div id="dc-progress" style="font-size:12px;color:var(--mut);margin-bottom:8px;display:none;">Uploading…</div>
           <button class="btn btn-c" onclick="addDesignCatalogItem()">+ Add to Catalogue</button>
         </div>
+
+        <div class="adm-card">
+          <div class="adm-card-title">Bulk Upload</div>
+          <div class="adm-card-sub">Select many images at once — titles auto-fill from filenames (edit any of them before uploading), all get the same category unless you change individual rows.</div>
+          <div class="form-2col" style="margin-bottom:10px;">
+            <div><label class="fl">Default Category (applied to all — editable per file below)</label>
+              <select id="dc-bulk-category">
+                <option value="Kitchen">Kitchen</option>
+                <option value="TV Unit">TV Unit</option>
+                <option value="Wardrobe">Wardrobe</option>
+                <option value="False Ceiling">False Ceiling</option>
+                <option value="Pooja Unit">Pooja Unit</option>
+                <option value="Crockery Unit">Crockery Unit</option>
+                <option value="Bed">Bed</option>
+                <option value="Side Unit">Side Unit</option>
+                <option value="Kitchen Accessories">Kitchen Accessories</option>
+                <option value="Partition">Partition</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div><label class="fl">Images</label><input type="file" id="dc-bulk-files" accept=".png,.jpg,.jpeg,.webp" multiple onchange="renderBulkDesignReview()"/></div>
+          </div>
+          <div id="dc-bulk-review"></div>
+          <div id="dc-bulk-progress" style="font-size:12px;color:var(--mut);margin:8px 0;display:none;"></div>
+          <button class="btn btn-c" id="dc-bulk-upload-btn" style="display:none;" onclick="uploadBulkDesignCatalog()">📤 Upload All</button>
+        </div>
         <div class="filter-row">
           <select id="dc-filter" onchange="renderDesignCatalog()">
             <option value="">All categories</option>
@@ -950,6 +976,65 @@ async function addDesignCatalogItem(){
     progressEl.style.display = 'none';
   }
 }
+
+function cleanFilenameToTitle(filename){
+  return filename.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+const BULK_DC_CATEGORIES = ['Kitchen','TV Unit','Wardrobe','False Ceiling','Pooja Unit','Crockery Unit','Bed','Side Unit','Kitchen Accessories','Partition','Other'];
+function renderBulkDesignReview(){
+  const files = document.getElementById('dc-bulk-files').files;
+  const defaultCat = document.getElementById('dc-bulk-category').value;
+  const reviewEl = document.getElementById('dc-bulk-review');
+  const uploadBtn = document.getElementById('dc-bulk-upload-btn');
+  if(!files.length){ reviewEl.innerHTML=''; uploadBtn.style.display='none'; return; }
+  uploadBtn.style.display = 'inline-block';
+  reviewEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:10px 0;">` +
+    Array.from(files).map((f,i)=>{
+      const url = URL.createObjectURL(f);
+      const title = cleanFilenameToTitle(f.name);
+      return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="font-size:11px;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="dc-bulk-inc-${i}" checked/> Include</label>
+        </div>
+        <img src="${url}" style="width:100%;height:90px;object-fit:cover;border-radius:6px;margin-bottom:6px;"/>
+        <input type="text" id="dc-bulk-title-${i}" value="${title.replace(/"/g,'&quot;')}" style="width:100%;font-size:12px;margin-bottom:4px;"/>
+        <select id="dc-bulk-cat-${i}" style="width:100%;font-size:12px;">
+          ${BULK_DC_CATEGORIES.map(c=>`<option value="${c}" ${c===defaultCat?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>`;
+    }).join('') + `</div>`;
+}
+async function uploadBulkDesignCatalog(){
+  const files = document.getElementById('dc-bulk-files').files;
+  const progressEl = document.getElementById('dc-bulk-progress');
+  const toUpload = [];
+  for(let i=0;i<files.length;i++){
+    const inc = document.getElementById('dc-bulk-inc-'+i);
+    if(inc && inc.checked) toUpload.push(i);
+  }
+  if(!toUpload.length){ alert('No images selected to upload.'); return; }
+  progressEl.style.display = 'block';
+  let done = 0;
+  for(const i of toUpload){
+    const title = document.getElementById('dc-bulk-title-'+i).value.trim() || 'Untitled';
+    const category = document.getElementById('dc-bulk-cat-'+i).value;
+    progressEl.textContent = `Uploading ${done+1} of ${toUpload.length}: ${title}…`;
+    try{
+      const { url } = await YS.uploadFile('design-catalog', files[i]);
+      await YS.insert('design_catalog', { category, title, image_url: url, description: '', active: true });
+      done++;
+    }catch(e){
+      console.error('Bulk upload failed for', files[i].name, e);
+    }
+  }
+  progressEl.textContent = `✓ Uploaded ${done} of ${toUpload.length} image(s).`;
+  document.getElementById('dc-bulk-files').value = '';
+  document.getElementById('dc-bulk-review').innerHTML = '';
+  document.getElementById('dc-bulk-upload-btn').style.display = 'none';
+  renderDesignCatalog();
+  setTimeout(()=>{ progressEl.style.display = 'none'; }, 5000);
+}
+
 async function toggleDesignCatalogItem(id){
   const d = YS.find('design_catalog', id);
   await YS.update('design_catalog', id, {active:!d.active});
