@@ -981,11 +981,26 @@ function setCustomItemType(i, type){
   else { QITEMS[i].length = null; QITEMS[i].height = null; QITEMS[i].qty = QITEMS[i].qty||1; }
   renderQItems();
 }
-function updateQItemDims(i, field, val){
+// Updates one field on an item WITHOUT re-rendering the whole item list —
+// re-rendering on every keystroke was destroying and recreating the input
+// elements, which kicked focus out after each character typed. Instead we
+// patch the model and surgically update just the derived read-outs
+// (sqft display, per-row amount, running totals) by element id.
+function updateItemField(i, field, val){
   QITEMS[i][field] = Number(val)||0;
-  if(QITEMS[i].unit_type==='sqft'){ QITEMS[i].qty = QITEMS[i].length * QITEMS[i].height; }
-  renderQItems();
+  if(QITEMS[i].unit_type==='sqft' && (field==='length' || field==='height')){
+    QITEMS[i].qty = (Number(QITEMS[i].length)||0) * (Number(QITEMS[i].height)||0);
+    const readout = document.getElementById('qty-readout-'+i);
+    if(readout) readout.value = QITEMS[i].qty.toFixed(1)+' sqft';
+  }
+  const amount = (Number(QITEMS[i].qty)||0)*(Number(QITEMS[i].rate)||0);
+  QITEMS[i].amount = amount;
+  const badge = document.getElementById('amount-badge-'+i);
+  if(badge) badge.textContent = '₹'+amount.toLocaleString('en-IN');
+  calcQTotal();
 }
+// Kept for the checklist-generated flow which still calls this by name.
+function updateQItemDims(i, field, val){ updateItemField(i, field, val); }
 function renderQItems(){
   document.getElementById('qitems').innerHTML = QITEMS.map((it,i)=>{
     // Upgrade any legacy custom items (old unit_type:'custom' scheme) in place
@@ -995,23 +1010,23 @@ function renderQItems(){
     const amount = (Number(it.qty)||0)*(Number(it.rate)||0);
     it.amount = amount;
     const header = isCustom
-      ? `<input type="text" value="${(it.item||'').replace(/"/g,'&quot;')}" placeholder="Item name" oninput="QITEMS[${i}].item=this.value;renderQItems();" style="width:100%;font-weight:600;font-size:12.5px;"/>`
+      ? `<input type="text" value="${(it.item||'').replace(/"/g,'&quot;')}" placeholder="Item name" oninput="QITEMS[${i}].item=this.value;" style="width:100%;font-weight:600;font-size:12.5px;"/>`
       : `<div style="font-size:12.5px;font-weight:600;">${it.item||'(unnamed item)'}${it.material_spec?' — '+it.material_spec:''}</div>`;
     let fields;
     if(it.unit_type==='sqft'){
       fields = `
-        <input type="number" value="${it.length}" placeholder="Length (ft)" oninput="updateQItemDims(${i},'length',this.value)"/>
-        <input type="number" value="${it.height}" placeholder="Height (ft)" oninput="updateQItemDims(${i},'height',this.value)"/>
-        <input type="text" value="${(Number(it.qty)||0).toFixed(1)} sqft" readonly style="background:var(--surf3);"/>
-        <input type="number" value="${it.rate}" placeholder="Rate ₹/sqft" oninput="QITEMS[${i}].rate=Number(this.value);renderQItems();"/>`;
+        <input type="number" value="${it.length}" placeholder="Length (ft)" oninput="updateItemField(${i},'length',this.value)"/>
+        <input type="number" value="${it.height}" placeholder="Height (ft)" oninput="updateItemField(${i},'height',this.value)"/>
+        <input type="text" id="qty-readout-${i}" value="${(Number(it.qty)||0).toFixed(1)} sqft" readonly style="background:var(--surf3);"/>
+        <input type="number" value="${it.rate}" placeholder="Rate ₹/sqft" oninput="updateItemField(${i},'rate',this.value)"/>`;
     } else {
       fields = `
         <input type="text" value="Lump sum" readonly style="background:var(--surf3);"/>
-        <input type="number" value="${it.qty}" placeholder="Qty" oninput="QITEMS[${i}].qty=Number(this.value);renderQItems();"/>
+        <input type="number" value="${it.qty}" placeholder="Qty" oninput="updateItemField(${i},'qty',this.value)"/>
         <input type="text" value="—" readonly style="background:var(--surf3);"/>
-        <input type="number" value="${it.rate}" placeholder="Rate ₹" oninput="QITEMS[${i}].rate=Number(this.value);renderQItems();"/>`;
+        <input type="number" value="${it.rate}" placeholder="Rate ₹" oninput="updateItemField(${i},'rate',this.value)"/>`;
     }
-    const roomPicker = `<select onchange="QITEMS[${i}].category=this.value;renderQItems();" style="width:auto;font-size:11px;padding:3px 6px;">
+    const roomPicker = `<select onchange="QITEMS[${i}].category=this.value;" style="width:auto;font-size:11px;padding:3px 6px;">
       <option value="">Room…</option>
       ${ROOM_LIST.map(r=>`<option value="${r}" ${it.category===r?'selected':''}>${r}</option>`).join('')}
       ${it.category && !ROOM_LIST.includes(it.category) ? `<option value="${it.category}" selected>${it.category}</option>` : ''}
@@ -1027,7 +1042,7 @@ function renderQItems(){
           <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">🏠 ${roomPicker} ${typePicker}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
-          <b style="font-size:13px;white-space:nowrap;">₹${amount.toLocaleString('en-IN')}</b>
+          <b id="amount-badge-${i}" style="font-size:13px;white-space:nowrap;">₹${amount.toLocaleString('en-IN')}</b>
           <button class="btn btn-d btn-xs" onclick="QITEMS.splice(${i},1);renderQItems();">✕</button>
         </div>
       </div>
