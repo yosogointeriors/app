@@ -176,6 +176,7 @@ input:focus,textarea:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(16
     </div>
 
     <div class="tabpage" id="tp-payments">
+      <div class="card" id="latest-quote-card"></div>
       <div class="card">
         <div class="card-title">Milestones</div>
         <div id="pay-milestones"></div>
@@ -281,7 +282,7 @@ function renderAll(){
     document.getElementById('home-summary').innerHTML = `<div style="color:var(--mut);font-size:13px;">Your project isn't live yet. Once your booking is confirmed, everything will appear here.</div>`;
     return;
   }
-  renderHome(); renderDesigns(); renderPayments(); renderTimeline(); renderPhotos();
+  renderHome(); renderDesigns(); renderPayments(); renderLatestQuotation(); renderTimeline(); renderPhotos();
 }
 
 function stagesOf(){ return YS.all('project_stages').filter(s=>s.project_id===PROJECT.id).sort((a,b)=>a.stage_order-b.stage_order); }
@@ -406,6 +407,40 @@ async function signOffDesign(id){
   });
   renderDesigns();
   alert('✓ Thank you — your sign-off has been recorded and sent to our production team.');
+}
+
+function renderLatestQuotation(){
+  const el = document.getElementById('latest-quote-card');
+  if(!el) return;
+  const quotes = YS.all('quotations').filter(q=>q.project_id===PROJECT.id && q.status!=='draft').sort((a,b)=>b.version-a.version);
+  const q = quotes[0];
+  if(!q){
+    el.innerHTML = `<div class="card-title">Latest Quotation</div><div style="color:var(--mut);font-size:13px;">No quotation sent yet.</div>`;
+    return;
+  }
+  const dateStr = new Date(q.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  el.innerHTML = `
+    <div class="card-title">Latest Quotation</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:19px;font-weight:800;">₹${Number(q.total_amount||0).toLocaleString('en-IN')}</div>
+        <div style="font-size:11.5px;color:var(--mut);">Version ${q.version} · ${dateStr}</div>
+      </div>
+      ${q.source==='offline'
+        ? `<a href="${q.file_url}" target="_blank" class="btn btn-c btn-sm">View File</a>`
+        : `<button class="btn btn-c btn-sm" onclick="downloadMyQuotation('${q.id}')">📄 View / Download</button>`}
+    </div>
+  `;
+}
+async function downloadMyQuotation(quoteId){
+  const q = YS.find('quotations', quoteId);
+  if(!q) return;
+  const settings = YS.all('payment_settings')[0] || {};
+  const lead = { name: (session && session.name) || (PROJECT ? PROJECT.project_name : '') };
+  const html = YS.renderQuotationHTML(q, lead, settings);
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 function renderPayments(){
