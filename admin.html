@@ -171,6 +171,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <div class="adm-nav-item" data-tab="qcalc" onclick="showTab('qcalc')"><span class="adm-nav-icon">🧮</span> Quotation Calculator</div>
       <div class="adm-nav-item" data-tab="designcat" onclick="showTab('designcat')"><span class="adm-nav-icon">🖼</span> Design Catalogue</div>
       <div class="adm-nav-item" data-tab="teams" onclick="showTab('teams')"><span class="adm-nav-icon">👥</span> Teams</div>
+      <div class="adm-nav-item" data-tab="customers" onclick="showTab('customers')"><span class="adm-nav-icon">👤</span> Customers</div>
       <div class="adm-nav-item" data-tab="settings" onclick="showTab('settings')"><span class="adm-nav-icon">⚙️</span> Payment Settings</div>
     </nav>
     <div class="admin-sidebar-footer">
@@ -413,6 +414,15 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         </div>
       </div>
 
+      <!-- CUSTOMERS -->
+      <div class="admin-tab" id="tab-customers">
+        <div class="adm-page-title">Customers</div>
+        <div class="adm-page-sub">Every customer portal login — name, phone, project, and current PIN. Reset a PIN or edit their details as needed.</div>
+        <div class="adm-card" style="padding:0;overflow-x:auto;">
+          <table><thead><tr><th>Name</th><th>Phone</th><th>Project</th><th>PIN</th><th>Created</th><th></th></tr></thead><tbody id="customers-tbody"></tbody></table>
+        </div>
+      </div>
+
       <!-- SETTINGS -->
       <div class="admin-tab" id="tab-settings">
         <div class="adm-page-title">Payment &amp; Quotation Settings</div>
@@ -511,6 +521,20 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   </div>
 </div>
 
+<!-- EDIT CUSTOMER MODAL -->
+<div class="modal-overlay" id="edit-customer-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Edit Customer</h3><button class="modal-close" onclick="closeModal('edit-customer-modal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="ecu-id"/>
+      <div class="fr"><label class="fl">Name</label><input type="text" id="ecu-name"/></div>
+      <div class="fr"><label class="fl">Phone</label><input type="text" id="ecu-phone"/></div>
+      <div style="font-size:11.5px;color:var(--mut);margin-top:4px;">To change their PIN, use "Reset PIN" from the Customers list instead.</div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('edit-customer-modal')">Cancel</button><button class="btn btn-c" onclick="saveEditCustomer()">Save Changes</button></div>
+  </div>
+</div>
+
 <!-- EDIT DESIGN CATALOGUE ITEM MODAL -->
 <div class="modal-overlay" id="edit-design-modal">
   <div class="modal-box">
@@ -586,9 +610,10 @@ function logout(){ adminSession=null; document.getElementById('admin-wrap').clas
 function showTab(tab){
   document.querySelectorAll('.adm-nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));
-  const titles={dashboard:'Dashboard',leads:'Leads Inbox',projects:'Projects',catalog:'Material Catalog',qcalc:'Quotation Calculator',designcat:'Design Catalogue',teams:'Teams',settings:'Payment Settings'};
+  const titles={dashboard:'Dashboard',leads:'Leads Inbox',projects:'Projects',catalog:'Material Catalog',qcalc:'Quotation Calculator',designcat:'Design Catalogue',teams:'Teams',customers:'Customers',settings:'Payment Settings'};
   document.getElementById('topbar-title').textContent = titles[tab];
   renderAll();
+  if(tab==='customers') renderCustomers();
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
@@ -1219,6 +1244,63 @@ async function resetTeamMemberPassword(id){
     const { password } = await YS.resetTeamPassword(id);
     alert(`🔑 New password for ${t?t.name:''}: ${password}\n\nShare this with them directly — it won't be shown again.`);
   }catch(e){ alert('Could not reset password: '+e.message); }
+}
+
+let CUSTOMERS_CACHE = [];
+async function renderCustomers(){
+  const tbody = document.getElementById('customers-tbody');
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:20px;">Loading…</td></tr>`;
+  try{
+    const { customers } = await YS.listCustomers();
+    CUSTOMERS_CACHE = customers || [];
+  }catch(e){
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--no-tx);padding:20px;">Could not load customers: ${e.message}</td></tr>`;
+    return;
+  }
+  const projects = YS.all('projects');
+  tbody.innerHTML = CUSTOMERS_CACHE.map(c=>{
+    const proj = projects.find(p=>p.id===c.project_id);
+    return `<tr>
+      <td><b>${c.name||'—'}</b></td>
+      <td>${c.phone}</td>
+      <td>${proj?proj.project_name:'<span style="color:var(--hnt);">No project linked</span>'}</td>
+      <td><code style="font-size:13px;font-weight:700;letter-spacing:1px;">${c.otp||'—'}</code></td>
+      <td style="color:var(--mut);font-size:11.5px;">${new Date(c.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-xs" onclick="openEditCustomerModal('${c.id}')">Edit</button>
+        <button class="btn btn-xs" onclick="resetCustomerPinFromList('${c.id}')">Reset PIN</button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:20px;">No customer accounts yet.</td></tr>`;
+}
+function openEditCustomerModal(id){
+  const c = CUSTOMERS_CACHE.find(x=>x.id===id);
+  if(!c){ alert('Customer not found.'); return; }
+  document.getElementById('ecu-id').value = c.id;
+  document.getElementById('ecu-name').value = c.name || '';
+  document.getElementById('ecu-phone').value = c.phone || '';
+  document.getElementById('edit-customer-modal').classList.add('open');
+}
+async function saveEditCustomer(){
+  const id = document.getElementById('ecu-id').value;
+  const name = document.getElementById('ecu-name').value.trim();
+  const phone = document.getElementById('ecu-phone').value.trim();
+  if(!phone){ alert('Phone is required.'); return; }
+  try{
+    await YS.updateCustomer({ id, name, phone });
+    closeModal('edit-customer-modal');
+    renderCustomers();
+  }catch(e){ alert('Could not save: '+e.message); }
+}
+async function resetCustomerPinFromList(id){
+  const c = CUSTOMERS_CACHE.find(x=>x.id===id);
+  if(!c){ alert('Customer not found.'); return; }
+  if(!confirm(`Reset PIN for ${c.name||c.phone}? Their old PIN will stop working immediately.`)) return;
+  try{
+    const { pin } = await YS.setCustomerPin({ project_id: c.project_id, name: c.name, phone: c.phone });
+    alert(`🔑 New PIN for ${c.name||c.phone}: ${pin}\n\nShare this with them directly.`);
+    renderCustomers();
+  }catch(e){ alert('Could not reset PIN: '+e.message); }
 }
 
 function renderSettings(){

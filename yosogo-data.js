@@ -170,6 +170,8 @@ const YS = (function () {
   function login(type, email, password) { return workerFetch('/api/login', { type, email, password }); }
   function customerLogin(phone, pin) { return workerFetch('/api/customer/login', { phone, pin }); }
   function setCustomerPin({ project_id, name, phone, pin }) { return workerFetch('/api/customer/set-pin', { project_id, name, phone, pin }); }
+  function listCustomers() { return workerFetch('/api/customer/list', {}); }
+  function updateCustomer({ id, name, phone }) { return workerFetch('/api/customer/update', { id, name, phone }); }
   function createTeamMember({ name, email, phone, roles, city }) { return workerFetch('/api/team/create', { name, email, phone, roles, city }); }
   function updateTeamMember({ id, name, email, phone, roles, city }) { return workerFetch('/api/team/update', { id, name, email, phone, roles, city }); }
   function resetTeamPassword(id, password) { return workerFetch('/api/team/reset-password', { id, password }); }
@@ -309,7 +311,7 @@ const YS = (function () {
     init, ready, onChange, refresh,
     all, find, insert, update, remove, uploadFile,
     createProjectFromLead, DEFAULT_STAGES,
-    login, customerLogin, setCustomerPin,
+    login, customerLogin, setCustomerPin, listCustomers, updateCustomer,
     createTeamMember, updateTeamMember, resetTeamPassword, toggleTeamMember, analyzeFloorPlan,
     renderQuotationHTML
   };
