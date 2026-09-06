@@ -204,6 +204,20 @@ create table quotation_catalog (
   created_at timestamptz default now()
 );
 
+-- Admin-managed design inspiration gallery — different from design_files
+-- (which is a specific customer's own project sign-off documents). This is
+-- shared/global reference imagery ("here are the Kitchen styles we offer")
+-- visible to every logged-in customer for browsing/inspiration.
+create table design_catalog (
+  id uuid primary key default gen_random_uuid(),
+  category text not null,          -- Kitchen | TV Unit | Wardrobe | False Ceiling | Pooja Unit | Crockery | Bed | Side Unit | Kitchen Accessories | Partition | ...
+  title text not null,             -- e.g. "Modern L-Shape White Gloss Kitchen"
+  image_url text not null,
+  description text,                -- optional style/material notes
+  active boolean default true,
+  created_at timestamptz default now()
+);
+
 -- Room-wise client requirement checklist, filled per lead during a site
 -- visit/requirement call — mirrors the "Room-wise Checklist" tab of your
 -- client Excel. One row per section+item the CRM person has touched
@@ -312,6 +326,7 @@ alter table catalog_materials enable row level security;
 alter table payment_settings enable row level security;
 alter table team_profiles enable row level security;
 alter table quotation_catalog enable row level security;
+alter table design_catalog enable row level security;
 
 create policy "anon full access" on leads for all using (true) with check (true);
 create policy "anon full access" on lead_notes for all using (true) with check (true);
@@ -326,6 +341,7 @@ create policy "anon full access" on payments for all using (true) with check (tr
 create policy "anon full access" on catalog_materials for all using (true) with check (true);
 create policy "anon full access" on payment_settings for all using (true) with check (true);
 create policy "anon full access" on quotation_catalog for all using (true) with check (true);
+create policy "anon full access" on design_catalog for all using (true) with check (true);
 create policy "anon full access" on client_checklist_items for all using (true) with check (true);
 create policy "anon read only" on team_profiles for select using (true);
 -- team_profiles is written only by the Worker (service_role) via /api/team/create
@@ -335,7 +351,7 @@ create policy "anon read only" on team_profiles for select using (true);
 alter publication supabase_realtime add table leads, lead_notes, projects,
   project_stages, stage_photos, design_files, quotations,
   payment_milestones, payments, catalog_materials, payment_settings, team_profiles,
-  quotation_catalog, client_checklist_items, floor_plans;
+  quotation_catalog, client_checklist_items, floor_plans, design_catalog;
 
 -- ============================================================================
 -- STORAGE — buckets for uploaded files (quotations, design documents)
@@ -366,3 +382,12 @@ create policy "anon upload floor plans" on storage.objects
   for insert to anon with check (bucket_id = 'floor-plans');
 create policy "anon read floor plans" on storage.objects
   for select to anon using (bucket_id = 'floor-plans');
+
+insert into storage.buckets (id, name, public)
+values ('design-catalog', 'design-catalog', true)
+on conflict (id) do nothing;
+
+create policy "anon upload design catalog" on storage.objects
+  for insert to anon with check (bucket_id = 'design-catalog');
+create policy "anon read design catalog" on storage.objects
+  for select to anon using (bucket_id = 'design-catalog');

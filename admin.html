@@ -169,6 +169,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <div class="adm-nav-item" data-tab="projects" onclick="showTab('projects')"><span class="adm-nav-icon">🏗</span> Projects</div>
       <div class="adm-nav-item" data-tab="catalog" onclick="showTab('catalog')"><span class="adm-nav-icon">🎨</span> Catalog</div>
       <div class="adm-nav-item" data-tab="qcalc" onclick="showTab('qcalc')"><span class="adm-nav-icon">🧮</span> Quotation Calculator</div>
+      <div class="adm-nav-item" data-tab="designcat" onclick="showTab('designcat')"><span class="adm-nav-icon">🖼</span> Design Catalogue</div>
       <div class="adm-nav-item" data-tab="teams" onclick="showTab('teams')"><span class="adm-nav-icon">👥</span> Teams</div>
       <div class="adm-nav-item" data-tab="settings" onclick="showTab('settings')"><span class="adm-nav-icon">⚙️</span> Payment Settings</div>
     </nav>
@@ -305,6 +306,54 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         <div class="adm-card" style="padding:0;overflow-x:auto;">
           <table><thead><tr><th>Category</th><th>Item</th><th>Material</th><th>Unit</th><th>Rate</th><th>Default?</th><th>Status</th><th></th></tr></thead><tbody id="qcalc-tbody"></tbody></table>
         </div>
+      </div>
+
+      <!-- DESIGN CATALOGUE -->
+      <div class="admin-tab" id="tab-designcat">
+        <div class="adm-page-title">Design Catalogue</div>
+        <div class="adm-page-sub">Upload sample designs across categories — visible to every customer as an inspiration gallery in their portal.</div>
+        <div class="adm-card">
+          <div class="adm-card-title">Add Design</div>
+          <div class="form-3col" style="margin-bottom:10px;">
+            <div><label class="fl">Category</label>
+              <select id="dc-category">
+                <option value="Kitchen">Kitchen</option>
+                <option value="TV Unit">TV Unit</option>
+                <option value="Wardrobe">Wardrobe</option>
+                <option value="False Ceiling">False Ceiling</option>
+                <option value="Pooja Unit">Pooja Unit</option>
+                <option value="Crockery Unit">Crockery Unit</option>
+                <option value="Bed">Bed</option>
+                <option value="Side Unit">Side Unit</option>
+                <option value="Kitchen Accessories">Kitchen Accessories</option>
+                <option value="Partition">Partition</option>
+                <option value="Other">Other (type below)</option>
+              </select>
+            </div>
+            <div><label class="fl">Title</label><input type="text" id="dc-title" placeholder="e.g. Modern L-Shape White Gloss Kitchen"/></div>
+            <div><label class="fl">Custom Category (if "Other")</label><input type="text" id="dc-category-custom" placeholder="Optional"/></div>
+          </div>
+          <div class="fr"><label class="fl">Image</label><input type="file" id="dc-file" accept=".png,.jpg,.jpeg,.webp"/></div>
+          <div class="fr"><label class="fl">Description (optional)</label><textarea id="dc-desc" placeholder="e.g. Matte laminate finish, soft-close hinges"></textarea></div>
+          <div id="dc-progress" style="font-size:12px;color:var(--mut);margin-bottom:8px;display:none;">Uploading…</div>
+          <button class="btn btn-c" onclick="addDesignCatalogItem()">+ Add to Catalogue</button>
+        </div>
+        <div class="filter-row">
+          <select id="dc-filter" onchange="renderDesignCatalog()">
+            <option value="">All categories</option>
+            <option value="Kitchen">Kitchen</option>
+            <option value="TV Unit">TV Unit</option>
+            <option value="Wardrobe">Wardrobe</option>
+            <option value="False Ceiling">False Ceiling</option>
+            <option value="Pooja Unit">Pooja Unit</option>
+            <option value="Crockery Unit">Crockery Unit</option>
+            <option value="Bed">Bed</option>
+            <option value="Side Unit">Side Unit</option>
+            <option value="Kitchen Accessories">Kitchen Accessories</option>
+            <option value="Partition">Partition</option>
+          </select>
+        </div>
+        <div id="designcat-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;"></div>
       </div>
 
       <!-- TEAMS -->
@@ -472,7 +521,7 @@ function logout(){ adminSession=null; document.getElementById('admin-wrap').clas
 function showTab(tab){
   document.querySelectorAll('.adm-nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));
-  const titles={dashboard:'Dashboard',leads:'Leads Inbox',projects:'Projects',catalog:'Material Catalog',qcalc:'Quotation Calculator',teams:'Teams',settings:'Payment Settings'};
+  const titles={dashboard:'Dashboard',leads:'Leads Inbox',projects:'Projects',catalog:'Material Catalog',qcalc:'Quotation Calculator',designcat:'Design Catalogue',teams:'Teams',settings:'Payment Settings'};
   document.getElementById('topbar-title').textContent = titles[tab];
   renderAll();
 }
@@ -483,7 +532,7 @@ const STATUS_PILL = {new:'p-inf',contacted:'p-inf',site_visit_scheduled:'p-wrn',
 const SOURCE_LABEL = {facebook_ad:'📘 Facebook Ad',website:'🌐 Website',referral:'🤝 Referral',whatsapp:'💬 WhatsApp',manual:'✍ Manual'};
 
 function renderAll(){
-  renderDashboard(); renderLeads(); renderProjects(); renderCatalog(); renderQuotationCatalog(); renderTeams(); renderSettings();
+  renderDashboard(); renderLeads(); renderProjects(); renderCatalog(); renderQuotationCatalog(); renderDesignCatalog(); renderTeams(); renderSettings();
 }
 
 function renderDashboard(){
@@ -852,6 +901,65 @@ async function uploadQCExcel(){
 }
 async function deleteQuotationCatalogItem(id){
   if(confirm('Remove this line item from the calculator?')){ await YS.remove('quotation_catalog', id); renderQuotationCatalog(); }
+}
+
+function renderDesignCatalog(){
+  const filter = document.getElementById('dc-filter')?.value || '';
+  let items = YS.all('design_catalog').sort((a,b)=>a.category.localeCompare(b.category)||new Date(b.created_at)-new Date(a.created_at));
+  if(filter) items = items.filter(d=>d.category===filter);
+  document.getElementById('designcat-grid').innerHTML = items.map(d=>`
+    <div style="border:0.5px solid var(--bdr);border-radius:10px;overflow:hidden;background:var(--surf);">
+      <img src="${d.image_url}" style="width:100%;height:140px;object-fit:cover;display:block;"/>
+      <div style="padding:10px;">
+        <div style="font-size:11px;color:var(--copper);font-weight:700;text-transform:uppercase;letter-spacing:.03em;">${d.category}</div>
+        <div style="font-size:12.5px;font-weight:600;margin:2px 0 6px;">${d.title}</div>
+        ${d.description?`<div style="font-size:11px;color:var(--mut);margin-bottom:8px;">${d.description}</div>`:''}
+        <div style="display:flex;gap:6px;">
+          <span class="pill ${d.active?'p-ok':'p-no'}" style="cursor:pointer;" onclick="toggleDesignCatalogItem('${d.id}')">${d.active?'Active':'Hidden'}</span>
+          <button class="btn btn-d btn-xs" onclick="deleteDesignCatalogItem('${d.id}')">Remove</button>
+        </div>
+      </div>
+    </div>
+  `).join('') || `<div style="grid-column:1/-1;text-align:center;color:var(--mut);padding:30px;">No designs uploaded yet.</div>`;
+}
+async function addDesignCatalogItem(){
+  const catSelect = document.getElementById('dc-category').value;
+  const category = catSelect==='Other' ? document.getElementById('dc-category-custom').value.trim() : catSelect;
+  const title = document.getElementById('dc-title').value.trim();
+  const fileInput = document.getElementById('dc-file');
+  const file = fileInput.files[0];
+  if(!category || !title){ alert('Category and title are required.'); return; }
+  if(!file){ alert('Choose an image to upload.'); return; }
+  const progressEl = document.getElementById('dc-progress');
+  progressEl.style.display = 'block';
+  try{
+    const { url } = await YS.uploadFile('design-catalog', file);
+    await YS.insert('design_catalog', {
+      category, title, image_url: url,
+      description: document.getElementById('dc-desc').value.trim(),
+      active: true
+    });
+    document.getElementById('dc-title').value = '';
+    document.getElementById('dc-category-custom').value = '';
+    document.getElementById('dc-desc').value = '';
+    fileInput.value = '';
+    renderDesignCatalog();
+  }catch(e){
+    alert('Upload failed: '+e.message);
+  }finally{
+    progressEl.style.display = 'none';
+  }
+}
+async function toggleDesignCatalogItem(id){
+  const d = YS.find('design_catalog', id);
+  await YS.update('design_catalog', id, {active:!d.active});
+  renderDesignCatalog();
+}
+async function deleteDesignCatalogItem(id){
+  if(confirm('Remove this design from the catalogue? Customers will no longer see it.')){
+    await YS.remove('design_catalog', id);
+    renderDesignCatalog();
+  }
 }
 
 function renderTeams(){
