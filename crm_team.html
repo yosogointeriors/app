@@ -295,7 +295,46 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   </div>
 </div>
 
+<!-- INTERIOR CONCEPT STUDIO — pick floor plan + theme, generate -->
+<div class="modal-overlay" id="interior-studio-modal">
+  <div class="modal-box wide">
+    <div class="modal-head"><h3>Generate Interior Renders</h3><button class="modal-close" onclick="closeModal('interior-studio-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="fr"><label class="fl">Floor Plan</label><select id="is-fp-select" onchange="renderIsRoomPreview()"></select></div>
+      <div id="is-room-preview" style="font-size:11.5px;color:var(--mut);margin:6px 0 16px;"></div>
+      <div class="fl" style="margin-bottom:8px;">Theme</div>
+      <div id="is-theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:6px;"></div>
+      <div id="is-progress" style="font-size:12px;color:var(--mut);margin-top:14px;display:none;">Placing furniture and building the walkthrough — this can take up to a minute…</div>
+      <div id="is-err" style="font-size:12px;color:var(--no-tx);margin-top:10px;"></div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('interior-studio-modal')">Cancel</button><button class="btn btn-c" id="is-generate-btn" onclick="runInteriorGeneration()" disabled>Generate</button></div>
+  </div>
+</div>
+
+<!-- INTERIOR CONCEPT VIEWER — top-down render + 3D walkthrough -->
+<div class="modal-overlay" id="concept-viewer-modal">
+  <div class="modal-box wide" style="max-width:1040px;">
+    <div class="modal-head"><h3 id="cv-title">Interior Concept</h3><button class="modal-close" onclick="closeConceptViewer()">×</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:6px;margin-bottom:14px;">
+        <button class="btn btn-sm" id="cv-tab-render" onclick="switchConceptTab('render')">Top-down render</button>
+        <button class="btn btn-sm" id="cv-tab-tour" onclick="switchConceptTab('tour')">360° walkthrough</button>
+      </div>
+      <div id="cv-render-pane"></div>
+      <div id="cv-tour-pane" style="display:none;">
+        <div style="position:relative;width:100%;max-width:960px;height:520px;background:#000;border-radius:10px;overflow:hidden;">
+          <canvas id="cv-tour-canvas" style="width:100%;height:100%;display:block;cursor:grab;"></canvas>
+          <div style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.55);color:#fff;font-size:11px;padding:6px 10px;border-radius:6px;">Drag to look around · arrow keys to move</div>
+          <div id="cv-tour-nav" style="position:absolute;bottom:12px;left:12px;right:12px;display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeConceptViewer()">Close</button></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="config.js"></script>
 <script src="yosogo-data.js"></script>
 <script>
@@ -446,6 +485,7 @@ function openLeadDetail(id){
       <button class="btn btn-sm" onclick="openOfflineQuoteModal('${id}')">📎 Upload Offline Quotation</button>
       <button class="btn btn-sm" onclick="uploadDesign('${id}')">🎨 Upload Design Document</button>
       <button class="btn btn-sm" onclick="openFloorPlanUpload('${id}')">📐 Upload Floor Plan</button>
+      <button class="btn btn-sm" onclick="openInteriorStudio('${id}')" ${floorPlans.some(f=>f.status==='analyzed')?'':'disabled title="Upload and analyse a floor plan first"'}>🖼️ Generate Interior Renders</button>
       <button class="btn btn-d btn-sm" onclick="markLost('${id}')">Mark Lost</button>
     </div>
     ${quotes.length ? `<div class="card-title" style="font-size:13px;margin-bottom:8px;">Quotation History</div>
@@ -497,6 +537,23 @@ function openLeadDetail(id){
         </div>
       </div>`;
     }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
+    <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Interior Concepts</div>
+    <div style="margin-bottom:8px;">${(proj ? YS.all('interior_concepts').filter(c=>c.project_id===proj.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)) : []).map(c=>{
+      const statusPill = c.status==='ready' ? `<span class="pill p-ok">✓ ${(c.rooms_json||[]).length} rooms rendered</span>`
+        : c.status==='generating' ? '<span class="pill p-wrn">Generating…</span>'
+        : '<span class="pill p-no">Failed</span>';
+      return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div>
+          <span style="font-size:12.5px;font-weight:600;">${c.theme_name||'Concept'}</span>
+          <div style="font-size:11px;color:var(--mut);">${new Date(c.created_at).toLocaleString('en-IN')}</div>
+          ${c.status==='failed' && c.error_message ? `<div style="font-size:11px;color:var(--no-tx);">${c.error_message}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${statusPill}
+          ${c.status==='ready' ? `<button class="btn btn-xs" onclick="openConceptViewer('${c.id}')">View render + tour</button>` : ''}
+        </div>
+      </div>`;
+    }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None generated yet — use "Generate Interior Renders" above once a floor plan is analysed.</span>'}</div>
     <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Notes &amp; Site Visit Log</div>
     <div class="fr" style="display:flex;gap:8px;"><input type="text" id="lm-note-text" placeholder="e.g. Site visit done — 3 rooms measured, kitchen 9x7ft…" style="flex:1;"/><button class="btn btn-p btn-sm" onclick="addLeadNote('${id}')">Add</button></div>
     <div>${notes.map(n=>`<div class="note-item">${n.note}<div class="note-meta">${new Date(n.created_at).toLocaleString('en-IN')}</div></div>`).join('') || '<div style="color:var(--mut);font-size:12.5px;">No notes yet.</div>'}</div>
@@ -703,6 +760,217 @@ async function verifyDesignFile(designId, leadId){
 // Note: there's no manual "send to production" step anymore — the moment the
 // customer signs off in their portal, design_files.status jumps straight to
 // 'sent_to_production' (see customer.html's signOffDesign()).
+
+/* ============================================================================
+   INTERIOR CONCEPT STUDIO — renders + 360 walkthrough from an analysed floor plan
+   ----------------------------------------------------------------------------
+   Furniture placement runs server-side (Worker → Claude), keyed off the same
+   floor_plans.extracted_rooms this lead's quotation already uses — real
+   labels + real length_ft/height_ft, no re-analysis needed. The Worker
+   writes the result into interior_concepts; we just poll/refresh and render.
+   Layout note: extracted_rooms gives each room's true size but not its
+   position relative to the others, so rooms are auto-arranged in a simple
+   walkable row layout rather than reproduced at their exact plan position —
+   dimensions and furniture fit are real, adjacency is a reasonable approximation.
+   ============================================================================ */
+const INTERIOR_THEMES = [
+  {id:'modern-heritage', name:'Modern Heritage', blurb:'Classic millwork, modern lines.', palette:['#5C4433','#8B6F47','#C9A227','#E9E2D3'], floor:'#8B6F47', wall:'#3A2E22', accent:'#C9A227'},
+  {id:'organic-curve', name:'Organic Curves', blurb:'Fluid, rounded, welcoming.', palette:['#A9B79A','#D8CBB4','#8C7A63','#F2EDE4'], floor:'#D8CBB4', wall:'#8C7A63', accent:'#A9B79A'},
+  {id:'art-deco', name:'Art Deco Revival', blurb:'Sculptural, precise, metallic.', palette:['#12181B','#C99A44','#7A1F2B','#E9E6DE'], floor:'#2F3A3C', wall:'#12181B', accent:'#C99A44'},
+  {id:'eclectic-max', name:'Maximalist Eclectic', blurb:'Layered pattern, bold colour.', palette:['#6B2737','#2E5339','#C99A44','#E4A340'], floor:'#6B2737', wall:'#2E5339', accent:'#E4A340'},
+  {id:'earthy-warm', name:'Earthy Warm Minimal', blurb:'Chocolate, sage, burgundy.', palette:['#4A3222','#6E7F5C','#7A2E33','#EFE7DA'], floor:'#EFE7DA', wall:'#4A3222', accent:'#6E7F5C'},
+  {id:'japandi', name:'Japandi', blurb:'Natural wood, quiet palette.', palette:['#D8CBB0','#8C7357','#3E3A34','#F2EEE6'], floor:'#F2EEE6', wall:'#8C7357', accent:'#3E3A34'},
+];
+const FT_TO_M = 0.3048;
+let IS_LEAD_ID = null, IS_SELECTED_THEME = null;
+
+function openInteriorStudio(id){
+  const floorPlans = YS.all('floor_plans').filter(f=>f.lead_id===id && f.status==='analyzed');
+  if(!floorPlans.length){ alert('Upload and analyse a floor plan for this lead first.'); return; }
+  IS_LEAD_ID = id; IS_SELECTED_THEME = null;
+  document.getElementById('is-err').textContent = '';
+  document.getElementById('is-progress').style.display = 'none';
+  document.getElementById('is-generate-btn').disabled = true;
+  const sel = document.getElementById('is-fp-select');
+  sel.innerHTML = floorPlans.map(f=>`<option value="${f.id}">${f.file_name||'Floor Plan'} — ${(f.extracted_rooms||[]).length} rooms</option>`).join('');
+  renderIsRoomPreview();
+  document.getElementById('is-theme-grid').innerHTML = INTERIOR_THEMES.map(t=>`
+    <div class="is-theme-card" data-theme="${t.id}" style="border:1.5px solid var(--bdr2);border-radius:8px;padding:12px;cursor:pointer;">
+      <div style="display:flex;gap:4px;margin-bottom:8px;">${t.palette.map(c=>`<div style="width:18px;height:18px;border-radius:4px;background:${c};"></div>`).join('')}</div>
+      <div style="font-size:13px;font-weight:700;">${t.name}</div>
+      <div style="font-size:11.5px;color:var(--mut);">${t.blurb}</div>
+    </div>`).join('');
+  document.querySelectorAll('.is-theme-card').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      document.querySelectorAll('.is-theme-card').forEach(c=>c.style.borderColor='var(--bdr2)');
+      el.style.borderColor = 'var(--blue)';
+      IS_SELECTED_THEME = el.dataset.theme;
+      document.getElementById('is-generate-btn').disabled = false;
+    });
+  });
+  document.getElementById('interior-studio-modal').classList.add('open');
+}
+function renderIsRoomPreview(){
+  const fp = YS.find('floor_plans', document.getElementById('is-fp-select').value);
+  if(!fp){ document.getElementById('is-room-preview').textContent=''; return; }
+  const rooms = (fp.extracted_rooms||[]).filter(r=>r.category);
+  document.getElementById('is-room-preview').textContent = rooms.length
+    ? rooms.map(r=>`${r.category}${r.length_ft&&r.height_ft?` (${r.length_ft}×${r.height_ft}ft)`:''}`).join(' · ')
+    : 'No mapped rooms on this plan yet — review it from the Floor Plans list first.';
+}
+async function runInteriorGeneration(){
+  if(!IS_SELECTED_THEME) return;
+  const fpId = document.getElementById('is-fp-select').value;
+  const theme = INTERIOR_THEMES.find(t=>t.id===IS_SELECTED_THEME);
+  document.getElementById('is-err').textContent = '';
+  document.getElementById('is-progress').style.display = 'block';
+  document.getElementById('is-generate-btn').disabled = true;
+  try{
+    let proj = YS.all('projects').find(p=>p.lead_id===IS_LEAD_ID);
+    if(!proj) proj = await YS.createProjectFromLead(YS.find('leads', IS_LEAD_ID));
+    const { concept_id } = await YS.generateInteriorConcept({
+      floor_plan_id: fpId, project_id: proj.id, theme_id: theme.id, theme_name: theme.name
+    });
+    await YS.refresh('interior_concepts');
+    closeModal('interior-studio-modal');
+    renderAll(); openLeadDetail(IS_LEAD_ID);
+    if(concept_id) openConceptViewer(concept_id);
+  }catch(err){
+    document.getElementById('is-err').textContent = "Couldn't generate: " + err.message;
+  }finally{
+    document.getElementById('is-progress').style.display = 'none';
+    document.getElementById('is-generate-btn').disabled = false;
+  }
+}
+
+/* ---------- Viewer: top-down SVG + three.js 360 tour ---------- */
+let CV_CONCEPT = null, CV_TOUR = {};
+function openConceptViewer(conceptId){
+  const c = YS.find('interior_concepts', conceptId);
+  if(!c || c.status!=='ready'){ alert('This concept is not ready yet.'); return; }
+  CV_CONCEPT = c;
+  document.getElementById('cv-title').textContent = c.theme_name + ' — concept render';
+  document.getElementById('concept-viewer-modal').classList.add('open');
+  switchConceptTab('render');
+  buildConceptSvg(c);
+}
+function closeConceptViewer(){
+  closeModal('concept-viewer-modal');
+  CV_TOUR.animating = false;
+}
+function switchConceptTab(tab){
+  document.getElementById('cv-render-pane').style.display = tab==='render' ? 'block' : 'none';
+  document.getElementById('cv-tour-pane').style.display = tab==='tour' ? 'block' : 'none';
+  document.getElementById('cv-tab-render').className = 'btn btn-sm' + (tab==='render' ? ' btn-c' : '');
+  document.getElementById('cv-tab-tour').className = 'btn btn-sm' + (tab==='tour' ? ' btn-c' : '');
+  if(tab==='tour') initConceptTour(CV_CONCEPT);
+}
+
+// Auto-arranges rooms (real widths/lengths in metres) into a walkable
+// row-flow layout, since the floor plan gave us sizes, not positions.
+function layoutRooms(rooms){
+  const targetRowWidth = Math.sqrt(rooms.reduce((s,r)=>s+r.widthM*r.lengthM,0)) * 1.6 || 6;
+  let x=0, y=0, rowH=0; const placed=[];
+  rooms.forEach(r=>{
+    if(x>0 && x+r.widthM>targetRowWidth){ x=0; y+=rowH; rowH=0; }
+    placed.push({...r, ox:x, oy:y});
+    x += r.widthM; rowH = Math.max(rowH, r.lengthM);
+  });
+  return placed;
+}
+function buildConceptSvg(c){
+  const theme = INTERIOR_THEMES.find(t=>t.id===c.theme_id) || INTERIOR_THEMES[0];
+  const rooms = layoutRooms(c.rooms_json||[]);
+  const PX = 42;
+  const maxX = Math.max(1,...rooms.map(r=>r.ox+r.widthM));
+  const maxY = Math.max(1,...rooms.map(r=>r.oy+r.lengthM));
+  let svg = `<svg width="${maxX*PX}" height="${maxY*PX}" viewBox="0 0 ${maxX*PX} ${maxY*PX}" xmlns="http://www.w3.org/2000/svg" style="background:${theme.wall}18;border-radius:6px;max-width:100%;">`;
+  rooms.forEach(r=>{
+    const x=r.ox*PX, y=r.oy*PX, w=r.widthM*PX, h=r.lengthM*PX;
+    svg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${theme.floor}" stroke="${theme.wall}" stroke-width="2.5"/>`;
+    (r.items||[]).forEach(it=>{
+      const iw=(it.rot===90||it.rot===270)?it.l:it.w, il=(it.rot===90||it.rot===270)?it.w:it.l;
+      const pxm_x=w/r.widthM, pxm_y=h/r.lengthM;
+      const ix=x+it.x*pxm_x-(iw*pxm_x)/2, iy=y+it.y*pxm_y-(il*pxm_y)/2;
+      svg += `<rect x="${ix.toFixed(1)}" y="${iy.toFixed(1)}" width="${(iw*pxm_x).toFixed(1)}" height="${(il*pxm_y).toFixed(1)}" rx="2" fill="${it.color||theme.accent}" fill-opacity="0.88" stroke="${theme.wall}" stroke-width="1"/>`;
+    });
+    svg += `<text x="${x+5}" y="${y+14}" font-size="10.5" font-family="sans-serif" fill="${theme.wall}">${r.label||r.category}</text>`;
+    svg += `<text x="${x+5}" y="${y+h-6}" font-size="8.5" font-family="monospace" fill="${theme.wall}" opacity="0.75">${r.widthM.toFixed(1)}×${r.lengthM.toFixed(1)}m</text>`;
+  });
+  svg += `</svg>`;
+  document.getElementById('cv-render-pane').innerHTML = svg;
+}
+function initConceptTour(c){
+  const canvas = document.getElementById('cv-tour-canvas');
+  const wrap = canvas.parentElement;
+  const theme = INTERIOR_THEMES.find(t=>t.id===c.theme_id) || INTERIOR_THEMES[0];
+  const rooms = layoutRooms(c.rooms_json||[]);
+
+  if(CV_TOUR.renderer){ CV_TOUR.renderer.dispose(); }
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(theme.wall);
+  scene.fog = new THREE.Fog(new THREE.Color(theme.wall).getHex(), 8, 26);
+  const camera = new THREE.PerspectiveCamera(70, wrap.clientWidth/wrap.clientHeight, 0.1, 100);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x222222, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.6); dir.position.set(5,8,4); scene.add(dir);
+
+  const floorMat = new THREE.MeshStandardMaterial({color:new THREE.Color(theme.floor), roughness:0.85});
+  const wallMat = new THREE.MeshStandardMaterial({color:new THREE.Color(theme.wall), roughness:0.9, transparent:true, opacity:0.35, side:THREE.DoubleSide});
+  const wallH = 2.6;
+  const waypoints = [];
+  rooms.forEach(r=>{
+    const rx=r.ox, rz=r.oy, rw=r.widthM, rd=r.lengthM;
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(rw,0.08,rd), floorMat);
+    floor.position.set(rx+rw/2, 0, rz+rd/2); scene.add(floor);
+    const wt=0.08;
+    [{w:rw,d:wt,x:rx+rw/2,z:rz},{w:rw,d:wt,x:rx+rw/2,z:rz+rd},{w:wt,d:rd,x:rx,z:rz+rd/2},{w:wt,d:rd,x:rx+rw,z:rz+rd/2}]
+      .forEach(s=>{ const w=new THREE.Mesh(new THREE.BoxGeometry(s.w,wallH,s.d), wallMat); w.position.set(s.x,wallH/2,s.z); scene.add(w); });
+    (r.items||[]).forEach(it=>{
+      const iw=(it.rot===90||it.rot===270)?it.l:it.w, id=(it.rot===90||it.rot===270)?it.w:it.l;
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(iw,it.h,id), new THREE.MeshStandardMaterial({color:new THREE.Color(it.color||theme.accent), roughness:0.6}));
+      mesh.position.set(rx+it.x, it.h/2, rz+it.y); scene.add(mesh);
+    });
+    waypoints.push({name:r.label||r.category, x:rx+rw/2, z:rz+rd/2});
+  });
+
+  CV_TOUR = {renderer, scene, camera, waypoints, yaw:0, pitch:0, pos:{x:waypoints[0]?.x||0, z:waypoints[0]?.z||0}, wallH, animating:true};
+
+  let dragging=false, lastX=0, lastY=0;
+  canvas.onmousedown = e=>{dragging=true; lastX=e.clientX; lastY=e.clientY;};
+  window.addEventListener('mouseup', ()=>dragging=false);
+  window.addEventListener('mousemove', e=>{
+    if(!dragging || !CV_TOUR.animating) return;
+    CV_TOUR.yaw -= (e.clientX-lastX)*0.005; CV_TOUR.pitch -= (e.clientY-lastY)*0.005;
+    CV_TOUR.pitch = Math.max(-1.2, Math.min(1.2, CV_TOUR.pitch));
+    lastX=e.clientX; lastY=e.clientY;
+  });
+  window.addEventListener('keydown', e=>{
+    if(!CV_TOUR.animating) return;
+    const speed=0.25, fx=Math.sin(CV_TOUR.yaw), fz=Math.cos(CV_TOUR.yaw);
+    if(e.key==='ArrowUp'){ CV_TOUR.pos.x-=fx*speed; CV_TOUR.pos.z-=fz*speed; }
+    if(e.key==='ArrowDown'){ CV_TOUR.pos.x+=fx*speed; CV_TOUR.pos.z+=fz*speed; }
+    if(e.key==='ArrowLeft') CV_TOUR.yaw += 0.08;
+    if(e.key==='ArrowRight') CV_TOUR.yaw -= 0.08;
+  });
+  document.getElementById('cv-tour-nav').innerHTML = waypoints.map((w,i)=>`<button class="btn btn-xs" onclick="jumpToRoom(${i})">${w.name}</button>`).join('');
+
+  function animate(){
+    if(!CV_TOUR.animating) return;
+    requestAnimationFrame(animate);
+    CV_TOUR.camera.position.set(CV_TOUR.pos.x, CV_TOUR.wallH*0.55, CV_TOUR.pos.z);
+    CV_TOUR.camera.rotation.order='YXZ';
+    CV_TOUR.camera.rotation.y = CV_TOUR.yaw; CV_TOUR.camera.rotation.x = CV_TOUR.pitch;
+    CV_TOUR.renderer.render(CV_TOUR.scene, CV_TOUR.camera);
+  }
+  animate();
+}
+function jumpToRoom(i){
+  const wp = CV_TOUR.waypoints[i];
+  if(!wp) return;
+  CV_TOUR.pos.x = wp.x; CV_TOUR.pos.z = wp.z;
+}
 
 const CHECKLIST_TEMPLATE = [
   ['Foyer/Entrance', ['Shoe Rack Unit','Console Table','Wall Mirror / Decor','False Ceiling & Lighting','Coat / Umbrella Hooks']],

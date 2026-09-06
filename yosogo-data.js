@@ -25,7 +25,7 @@ const YS = (function () {
     'design_files', 'quotations',
     'payment_milestones', 'payments',
     'catalog_materials', 'payment_settings', 'team_profiles', 'quotation_catalog',
-    'client_checklist_items', 'floor_plans'
+    'client_checklist_items', 'floor_plans', 'interior_concepts'
   ];
 
   const DEFAULT_STAGES = [
@@ -175,6 +175,14 @@ const YS = (function () {
   function resetTeamPassword(id, password) { return workerFetch('/api/team/reset-password', { id, password }); }
   function toggleTeamMember(id) { return workerFetch('/api/team/toggle', { id }); }
   function analyzeFloorPlan(floor_plan_id) { return workerFetch('/api/floorplan/analyze', { floor_plan_id }); }
+  // Generates furniture-filled room renders + walkthrough data from an
+  // already-analyzed floor plan, and saves the result into interior_concepts.
+  // Returns { concept_id }. Worker does all Claude calls server-side (see
+  // worker_interior_endpoint.js) and inserts using its service_role key, so
+  // the row appears here via the realtime subscription — no browser insert.
+  function generateInteriorConcept({ floor_plan_id, project_id, theme_id, theme_name }) {
+    return workerFetch('/api/interior/generate', { floor_plan_id, project_id, theme_id, theme_name });
+  }
 
   // Renders a print-ready HTML quotation document (matches the letterhead
   // format in Settings) — used by both the Admin and CRM portals to
@@ -311,6 +319,7 @@ const YS = (function () {
     createProjectFromLead, DEFAULT_STAGES,
     login, customerLogin, setCustomerPin,
     createTeamMember, updateTeamMember, resetTeamPassword, toggleTeamMember, analyzeFloorPlan,
+    generateInteriorConcept,
     renderQuotationHTML
   };
 })();
