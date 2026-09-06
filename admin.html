@@ -540,10 +540,10 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   <div class="modal-box">
     <div class="modal-head"><h3>Share Login Details</h3><button class="modal-close" onclick="closeModal('share-customer-modal')">×</button></div>
     <div class="modal-body">
-      <div style="font-size:11.5px;color:var(--mut);margin-bottom:8px;">Copy this and send it via WhatsApp, SMS, or email — nothing is sent automatically.</div>
+      <div style="font-size:11.5px;color:var(--mut);margin-bottom:8px;">Open directly in WhatsApp (pre-fills the message to their number), or copy it to send another way — nothing is sent automatically.</div>
       <textarea id="share-message-text" style="min-height:220px;font-family:inherit;font-size:12.5px;line-height:1.5;" readonly></textarea>
     </div>
-    <div class="modal-foot"><button class="btn" onclick="closeModal('share-customer-modal')">Close</button><button class="btn btn-c" onclick="copyShareMessage()">📋 Copy to Clipboard</button></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('share-customer-modal')">Close</button><button class="btn" onclick="copyShareMessage()">📋 Copy</button><button class="btn btn-c" onclick="openWhatsAppShare()">📱 Open in WhatsApp</button></div>
   </div>
 </div>
 
@@ -1315,9 +1315,11 @@ async function resetCustomerPinFromList(id){
     renderCustomers();
   }catch(e){ alert('Could not reset PIN: '+e.message); }
 }
+let SHARE_CUSTOMER_PHONE = '';
 function openShareCustomerModal(id){
   const c = CUSTOMERS_CACHE.find(x=>x.id===id);
   if(!c){ alert('Customer not found.'); return; }
+  SHARE_CUSTOMER_PHONE = c.phone;
   const proj = YS.all('projects').find(p=>p.id===c.project_id);
   const quotes = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id && q.status!=='draft').sort((a,b)=>b.version-a.version) : [];
   const latestQuote = quotes[0];
@@ -1350,6 +1352,13 @@ async function copyShareMessage(){
   }catch(e){
     alert('Could not copy automatically — the text is selected, use Ctrl/Cmd+C to copy manually.');
   }
+}
+function openWhatsAppShare(){
+  const message = document.getElementById('share-message-text').value;
+  let digits = (SHARE_CUSTOMER_PHONE||'').replace(/\D/g,'');
+  if(digits.length === 10) digits = '91' + digits; // assume India when no country code is stored
+  const link = `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+  window.open(link, '_blank');
 }
 
 function renderSettings(){
