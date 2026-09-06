@@ -714,7 +714,7 @@ function addFloorPlanRoomsToQuotation(){
     const catalogItem = YS.find('quotation_catalog', itemId);
     if(!catalogItem) return;
     selected.push({
-      item: catalogItem.item_name, category: room, material_spec: catalogItem.material_spec||'',
+      item: catalogItem.item_name, category: room, material_spec: catalogItem.material_spec||'', description: catalogItem.description||'',
       unit_type: catalogItem.unit_type,
       length: catalogItem.unit_type==='sqft'?length:null,
       height: catalogItem.unit_type==='sqft'?height:null,
@@ -885,7 +885,7 @@ async function saveAndGenerateQuotation(){
     if(!match) match = catalog.find(q => normalize(q.category)===normalize(sectionToCategory(r.section)) && normalize(q.item_name).includes(normalize(r.item).slice(0,8)));
     if(match){
       return {
-        item: match.item_name, category: r.section, material_spec: r.material || match.material_spec || '',
+        item: match.item_name, category: r.section, material_spec: r.material || match.material_spec || '', description: match.description||'',
         unit_type: match.unit_type, length: match.unit_type==='sqft'?0:null, height: match.unit_type==='sqft'?0:null,
         qty: match.unit_type==='lump' ? (r.qty||1) : 0, rate: Number(match.rate), amount: 0, note: r.remarks||''
       };
@@ -987,7 +987,7 @@ function addCatalogQItem(){
   if(!room || !id) return;
   const q = YS.find('quotation_catalog', id);
   QITEMS.push({
-    item: q.item_name, category: room, material_spec: q.material_spec||'',
+    item: q.item_name, category: room, material_spec: q.material_spec||'', description: q.description||'',
     unit_type: q.unit_type, length: q.unit_type==='sqft'?0:null, height: q.unit_type==='sqft'?0:null,
     qty: q.unit_type==='lump'?1:0, rate: Number(q.rate), amount: 0
   });
