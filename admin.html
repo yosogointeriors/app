@@ -167,7 +167,6 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <div class="adm-nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><span class="adm-nav-icon">📊</span> Dashboard</div>
       <div class="adm-nav-item" data-tab="leads" onclick="showTab('leads')"><span class="adm-nav-icon">📥</span> Leads Inbox</div>
       <div class="adm-nav-item" data-tab="projects" onclick="showTab('projects')"><span class="adm-nav-icon">🏗</span> Projects</div>
-      <div class="adm-nav-item" data-tab="catalog" onclick="showTab('catalog')"><span class="adm-nav-icon">🎨</span> Catalog</div>
       <div class="adm-nav-item" data-tab="qcalc" onclick="showTab('qcalc')"><span class="adm-nav-icon">🧮</span> Quotation Calculator</div>
       <div class="adm-nav-item" data-tab="designcat" onclick="showTab('designcat')"><span class="adm-nav-icon">🖼</span> Design Catalogue</div>
       <div class="adm-nav-item" data-tab="teams" onclick="showTab('teams')"><span class="adm-nav-icon">👥</span> Teams</div>
@@ -250,27 +249,6 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         <div class="adm-page-title">Projects</div>
         <div class="adm-page-sub">Every booked lead becomes a project here — tracked across 9 stages to handover.</div>
         <div id="projects-list"></div>
-      </div>
-
-      <!-- CATALOG -->
-      <div class="admin-tab" id="tab-catalog">
-        <div class="adm-page-title">Material Catalog</div>
-        <div class="adm-page-sub">Carcass, shutter, hardware &amp; countertop options used in quotations.</div>
-        <div class="adm-card">
-          <div class="adm-card-title">Add Material</div>
-          <div class="form-3col" style="margin-bottom:10px;">
-            <div><label class="fl">Category</label><select id="cat-category"><option value="carcass">Carcass</option><option value="shutter">Shutter</option><option value="hardware">Hardware</option><option value="countertop">Countertop</option></select></div>
-            <div><label class="fl">Name</label><input type="text" id="cat-name" placeholder="e.g. HDHMR Board"/></div>
-            <div><label class="fl">Finish</label><input type="text" id="cat-finish" placeholder="e.g. Matte"/></div>
-          </div>
-          <div class="form-2col" style="margin-bottom:12px;">
-            <div><label class="fl">Price / sqft (₹)</label><input type="number" id="cat-price" placeholder="0"/></div>
-          </div>
-          <button class="btn btn-c" onclick="addCatalogItem()">+ Add to Catalog</button>
-        </div>
-        <div class="adm-card" style="padding:0;overflow-x:auto;">
-          <table><thead><tr><th>Category</th><th>Name</th><th>Finish</th><th>Price / sqft</th><th></th></tr></thead><tbody id="catalog-tbody"></tbody></table>
-        </div>
       </div>
 
       <!-- QUOTATION CALCULATOR -->
@@ -622,7 +600,7 @@ function logout(){ adminSession=null; document.getElementById('admin-wrap').clas
 function showTab(tab){
   document.querySelectorAll('.adm-nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));
-  const titles={dashboard:'Dashboard',leads:'Leads Inbox',projects:'Projects',catalog:'Material Catalog',qcalc:'Quotation Calculator',designcat:'Design Catalogue',teams:'Teams',customers:'Customers',settings:'Payment Settings'};
+  const titles={dashboard:'Dashboard',leads:'Leads Inbox',projects:'Projects',qcalc:'Quotation Calculator',designcat:'Design Catalogue',teams:'Teams',customers:'Customers',settings:'Payment Settings'};
   document.getElementById('topbar-title').textContent = titles[tab];
   renderAll();
   if(tab==='customers') renderCustomers();
@@ -634,7 +612,7 @@ const STATUS_PILL = {new:'p-inf',contacted:'p-inf',site_visit_scheduled:'p-wrn',
 const SOURCE_LABEL = {facebook_ad:'📘 Facebook Ad',website:'🌐 Website',referral:'🤝 Referral',whatsapp:'💬 WhatsApp',manual:'✍ Manual'};
 
 function renderAll(){
-  renderDashboard(); renderLeads(); renderProjects(); renderCatalog(); renderQuotationCatalog(); renderDesignCatalog(); renderTeams(); renderSettings();
+  renderDashboard(); renderLeads(); renderProjects(); renderQuotationCatalog(); renderDesignCatalog(); renderTeams(); renderSettings();
 }
 
 function renderDashboard(){
@@ -881,25 +859,6 @@ async function generateCustomerPin(projectId){
     alert('🔑 Customer portal PIN for '+l.name+' ('+l.phone+'): '+pin+'\n\nShare this with the customer — they log in with their phone number + this PIN.');
   }catch(e){ alert('Could not generate PIN: '+e.message); }
 }
-
-function renderCatalog(){
-  document.getElementById('catalog-tbody').innerHTML = YS.all('catalog_materials').map(c=>`
-    <tr><td style="text-transform:capitalize;">${c.category}</td><td>${c.name}</td><td>${c.finish||'—'}</td><td>${c.price_per_sqft?'₹'+c.price_per_sqft:'—'}</td>
-    <td><button class="btn btn-d btn-xs" onclick="event.stopPropagation();deleteCatalog('${c.id}')">Remove</button></td></tr>
-  `).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:20px;">No materials yet.</td></tr>`;
-}
-async function addCatalogItem(){
-  const name=document.getElementById('cat-name').value.trim();
-  if(!name){ alert('Enter a material name.'); return; }
-  await YS.insert('catalog_materials',{
-    category:document.getElementById('cat-category').value,
-    name, finish:document.getElementById('cat-finish').value.trim(),
-    price_per_sqft:Number(document.getElementById('cat-price').value)||0
-  });
-  document.getElementById('cat-name').value=''; document.getElementById('cat-finish').value=''; document.getElementById('cat-price').value='';
-  renderCatalog();
-}
-async function deleteCatalog(id){ if(confirm('Remove this material?')){ await YS.remove('catalog_materials', id); renderCatalog(); } }
 
 function renderQuotationCatalog(){
   const items = YS.all('quotation_catalog').sort((a,b)=>a.category.localeCompare(b.category)||a.item_name.localeCompare(b.item_name));
