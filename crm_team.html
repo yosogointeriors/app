@@ -471,6 +471,7 @@ function openLeadDetail(id){
   const designs = proj ? YS.all('design_files').filter(d=>d.project_id===proj.id) : [];
   const quotes = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id).sort((a,b)=>b.version-a.version) : [];
   const floorPlans = YS.all('floor_plans').filter(f=>f.lead_id===id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const customerSelections = proj ? YS.all('customer_design_selections').filter(s=>s.project_id===proj.id) : [];
   const nextIdx = STATUS_ORDER.indexOf(l.status);
   const nextStatus = STATUS_ORDER[nextIdx+1];
 
@@ -535,6 +536,28 @@ function openLeadDetail(id){
         ${d.customer_comment ? `<div style="margin-top:8px;padding:8px;background:var(--surf2);border-radius:6px;font-size:11.5px;"><b>Customer comment:</b> ${d.customer_comment}</div>` : ''}
       </div>`;
     }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
+    <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Customer's Selected Designs ${customerSelections.length?`(${customerSelections.length})`:''}</div>
+    <div style="margin-bottom:8px;">${(()=>{
+      if(!proj) return '<span style="color:var(--mut);font-size:12.5px;">No project yet — customer selections appear once booked.</span>';
+      if(!customerSelections.length) return '<span style="color:var(--mut);font-size:12.5px;">Customer hasn\'t selected any reference designs yet.</span>';
+      const catalogItems = YS.all('design_catalog');
+      const grouped = {}; const order = [];
+      customerSelections.forEach(s=>{
+        const design = catalogItems.find(c=>c.id===s.design_catalog_id);
+        if(!design) return;
+        if(!grouped[design.category]){ grouped[design.category]=[]; order.push(design.category); }
+        grouped[design.category].push(design);
+      });
+      return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;">` + order.map(cat=>`
+        <div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;margin-top:6px;">${cat}</div>
+        ${grouped[cat].map(d=>`
+          <div style="border:0.5px solid var(--bdr);border-radius:8px;overflow:hidden;">
+            <img src="${d.image_url}" style="width:100%;height:70px;object-fit:cover;display:block;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')"/>
+            <div style="padding:5px;font-size:10.5px;font-weight:600;">${d.title}</div>
+          </div>
+        `).join('')}
+      `).join('') + `</div>`;
+    })()}</div>
     <div class="card-title" style="font-size:13px;margin-top:16px;margin-bottom:8px;">Floor Plans</div>
     <div style="margin-bottom:8px;">${floorPlans.map(f=>{
       const statusPill = f.status==='analyzed' ? `<span class="pill p-ok">✓ ${(f.extracted_rooms||[]).length} rooms found</span>`

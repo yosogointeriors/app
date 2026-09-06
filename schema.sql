@@ -218,6 +218,17 @@ create table design_catalog (
   created_at timestamptz default now()
 );
 
+-- A customer's picks from the shared design_catalog for their own project —
+-- visible to the CRM/design team so they know which reference styles the
+-- customer likes, across every category, before finalizing the actual design.
+create table customer_design_selections (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid references projects(id) on delete cascade,
+  design_catalog_id uuid references design_catalog(id) on delete cascade,
+  selected_at timestamptz default now(),
+  unique(project_id, design_catalog_id)
+);
+
 -- Room-wise client requirement checklist, filled per lead during a site
 -- visit/requirement call — mirrors the "Room-wise Checklist" tab of your
 -- client Excel. One row per section+item the CRM person has touched
@@ -327,6 +338,7 @@ alter table payment_settings enable row level security;
 alter table team_profiles enable row level security;
 alter table quotation_catalog enable row level security;
 alter table design_catalog enable row level security;
+alter table customer_design_selections enable row level security;
 
 create policy "anon full access" on leads for all using (true) with check (true);
 create policy "anon full access" on lead_notes for all using (true) with check (true);
@@ -342,6 +354,7 @@ create policy "anon full access" on catalog_materials for all using (true) with 
 create policy "anon full access" on payment_settings for all using (true) with check (true);
 create policy "anon full access" on quotation_catalog for all using (true) with check (true);
 create policy "anon full access" on design_catalog for all using (true) with check (true);
+create policy "anon full access" on customer_design_selections for all using (true) with check (true);
 create policy "anon full access" on client_checklist_items for all using (true) with check (true);
 create policy "anon read only" on team_profiles for select using (true);
 -- team_profiles is written only by the Worker (service_role) via /api/team/create
@@ -351,7 +364,7 @@ create policy "anon read only" on team_profiles for select using (true);
 alter publication supabase_realtime add table leads, lead_notes, projects,
   project_stages, stage_photos, design_files, quotations,
   payment_milestones, payments, catalog_materials, payment_settings, team_profiles,
-  quotation_catalog, client_checklist_items, floor_plans, design_catalog;
+  quotation_catalog, client_checklist_items, floor_plans, design_catalog, customer_design_selections;
 
 -- ============================================================================
 -- STORAGE — buckets for uploaded files (quotations, design documents)

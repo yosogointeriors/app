@@ -25,7 +25,7 @@ const YS = (function () {
     'design_files', 'quotations',
     'payment_milestones', 'payments',
     'catalog_materials', 'payment_settings', 'team_profiles', 'quotation_catalog',
-    'client_checklist_items', 'floor_plans', 'design_catalog'
+    'client_checklist_items', 'floor_plans', 'design_catalog', 'customer_design_selections'
   ];
 
   const DEFAULT_STAGES = [

@@ -301,20 +301,33 @@ function renderGallery(){
   const filtered = filter ? items.filter(d=>d.category===filter) : items;
   const grouped = {}; const order = [];
   filtered.forEach(d=>{ if(!grouped[d.category]){ grouped[d.category]=[]; order.push(d.category); } grouped[d.category].push(d); });
+  const mySelections = PROJECT ? new Set(YS.all('customer_design_selections').filter(s=>s.project_id===PROJECT.id).map(s=>s.design_catalog_id)) : new Set();
   document.getElementById('gallery-grid').innerHTML = order.map(cat => `
     <div style="grid-column:1/-1;margin-top:14px;display:flex;align-items:baseline;gap:6px;border-bottom:0.5px solid var(--bdr);padding-bottom:4px;">
       <h3 style="font-size:12.5px;font-weight:700;text-transform:uppercase;color:var(--rose);">${cat}</h3>
       <span style="font-size:10.5px;color:var(--mut);">${grouped[cat].length}</span>
     </div>
-    ${grouped[cat].map(d=>`
-      <div style="border-radius:10px;overflow:hidden;border:0.5px solid var(--bdr);">
+    ${grouped[cat].map(d=>{
+      const isSelected = mySelections.has(d.id);
+      return `<div style="border-radius:10px;overflow:hidden;border:0.5px solid ${isSelected?'var(--rose)':'var(--bdr)'};${isSelected?'border-width:2px;':''}">
         <img src="${d.image_url}" style="width:100%;height:120px;object-fit:cover;display:block;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')"/>
         <div style="padding:8px;">
-          <div style="font-size:12px;font-weight:600;">${d.title}</div>
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px;">${d.title}</div>
+          ${PROJECT ? `<button class="btn ${isSelected?'btn-c':''} btn-sm" style="width:100%;" onclick="toggleDesignSelection('${d.id}')">${isSelected?'✓ Selected':'☆ Select'}</button>` : ''}
         </div>
-      </div>
-    `).join('')}
+      </div>`;
+    }).join('')}
   `).join('') || `<div style="grid-column:1/-1;text-align:center;color:var(--mut);padding:20px;font-size:13px;">No designs available yet — check back soon.</div>`;
+}
+async function toggleDesignSelection(designId){
+  if(!PROJECT) return;
+  const existing = YS.all('customer_design_selections').find(s=>s.project_id===PROJECT.id && s.design_catalog_id===designId);
+  if(existing){
+    await YS.remove('customer_design_selections', existing.id);
+  } else {
+    await YS.insert('customer_design_selections', { project_id: PROJECT.id, design_catalog_id: designId });
+  }
+  renderGallery();
 }
 
 function renderHome(){
