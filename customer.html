@@ -117,6 +117,7 @@ input:focus,textarea:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(16
       <div class="fr"><label class="fl">PIN (given to you by your designer)</label><input type="text" id="li-pin" class="otp-input" maxlength="6" value="123456"/></div>
       <button class="btn btn-p btn-f" onclick="doCustomerLogin()" disabled>Loading…</button>
       <div id="phone-err" style="color:var(--no-tx);font-size:12px;margin-top:10px;display:none;"></div>
+      <div class="login-hint">Demo number 9840011223 · PIN 1234</div>
     </div>
   </div>
 </div>
@@ -224,7 +225,8 @@ input:focus,textarea:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(16
 
 <!-- IMAGE LIGHTBOX (tap any design/photo thumbnail to view full-size) -->
 <div class="modal-overlay" id="image-lightbox" onclick="closeModal('image-lightbox')" style="align-items:center;">
-  <img id="lightbox-img" style="max-width:92vw;max-height:88vh;border-radius:8px;"/>
+  <img id="lightbox-img" oncontextmenu="return false" style="max-width:92vw;max-height:88vh;border-radius:8px;"/>
+  <iframe id="lightbox-pdf" onclick="event.stopPropagation()" style="width:94vw;height:85vh;border:none;border-radius:8px;background:#fff;display:none;"></iframe>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -286,8 +288,19 @@ function renderAll(){
 
 function stagesOf(){ return YS.all('project_stages').filter(s=>s.project_id===PROJECT.id).sort((a,b)=>a.stage_order-b.stage_order); }
 
+function isPdfUrl(url){ return /\.pdf(\?|$)/i.test(url||''); }
 function openImageLightbox(url){
-  document.getElementById('lightbox-img').src = url;
+  const img = document.getElementById('lightbox-img');
+  const pdf = document.getElementById('lightbox-pdf');
+  if(isPdfUrl(url)){
+    img.style.display = 'none'; img.src = '';
+    pdf.src = url + '#toolbar=0&navpanes=0';
+    pdf.style.display = 'block';
+  } else {
+    pdf.style.display = 'none'; pdf.src = '';
+    img.src = url;
+    img.style.display = 'block';
+  }
   document.getElementById('image-lightbox').classList.add('open');
 }
 function renderGallery(){
@@ -309,8 +322,11 @@ function renderGallery(){
     </div>
     ${grouped[cat].map(d=>{
       const isSelected = mySelections.has(d.id);
+      const thumb = isPdfUrl(d.image_url)
+        ? `<div style="width:100%;height:120px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:30px;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')">📄</div>`
+        : `<img src="${d.image_url}" oncontextmenu="return false" style="width:100%;height:120px;object-fit:cover;display:block;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')"/>`;
       return `<div style="border-radius:10px;overflow:hidden;border:0.5px solid ${isSelected?'var(--rose)':'var(--bdr)'};${isSelected?'border-width:2px;':''}">
-        <img src="${d.image_url}" style="width:100%;height:120px;object-fit:cover;display:block;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')"/>
+        ${thumb}
         <div style="padding:8px;">
           <div style="font-size:12px;font-weight:600;margin-bottom:6px;">${d.title}</div>
           ${PROJECT ? `<button class="btn ${isSelected?'btn-c':''} btn-sm" style="width:100%;" onclick="toggleDesignSelection('${d.id}')">${isSelected?'✓ Selected':'☆ Select'}</button>` : ''}
