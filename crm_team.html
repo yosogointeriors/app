@@ -174,7 +174,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           </select>
         </div>
         <div class="card" style="padding:0;overflow-x:auto;">
-          <table><thead><tr><th>Lead</th><th>Project</th><th>Source</th><th>Status</th><th>Likelihood</th><th>Quotation</th><th>Last Update</th></tr></thead><tbody id="pipe-tbody"></tbody></table>
+          <table><thead><tr><th>Lead</th><th>Project</th><th>City</th><th>Source</th><th>Status</th><th>Likelihood</th><th>Quotation</th><th>Last Update</th></tr></thead><tbody id="pipe-tbody"></tbody></table>
         </div>
       </div>
 
@@ -468,13 +468,14 @@ function renderPipeline(){
     return `<tr onclick="openLeadDetail('${l.id}')">
       <td><b>${l.name}</b><br><span style="color:var(--mut);font-size:11.5px;">${l.phone}</span></td>
       <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
+      <td>${l.city||'—'}</td>
       <td>${l.source==='facebook_ad'?'📘 FB Ad':l.source}</td>
       <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span>${l.site_ready===true?' <span class="pill p-ok">✓ Ready</span>':''}</td>
       <td><span class="pill ${probabilityPillClass(leadProbability(l))}">${leadProbability(l)}%</span></td>
       <td>${q ? `₹${Number(q.total_amount||0).toLocaleString('en-IN')}<br><span style="color:var(--mut);font-size:10.5px;cursor:pointer;text-decoration:underline;" onclick="event.stopPropagation();${q.source==='offline'?`window.open('${q.file_url}','_blank')`:`downloadQuotationPDF('${q.id}')`}">${q.source==='offline'?'View File':'Download PDF'}</span>` : '<span style="color:var(--hnt);">—</span>'}</td>
       <td style="color:var(--mut);font-size:11.5px;">${new Date(l.updated_at||l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px;">No leads assigned to you yet.</td></tr>`;
+  }).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:30px;">No leads assigned to you yet.</td></tr>`;
 }
 function latestQuotation(leadId){
   const proj = YS.all('projects').find(p=>p.lead_id===leadId);
