@@ -570,6 +570,8 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 <script src="config.js"></script>
 <script src="yosogo-data.js"></script>
 <script>
@@ -996,7 +998,9 @@ function renderDesignCatalog(){
     </div>
     ${grouped[cat].map(d=>{
       const thumb = isPdfUrl(d.image_url)
-        ? `<div style="width:100%;height:140px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:36px;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')">📄</div>`
+        ? (d.thumbnail_url
+            ? `<img src="${d.thumbnail_url}" oncontextmenu="return false" style="width:100%;height:140px;object-fit:cover;display:block;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')"/>`
+            : `<div style="width:100%;height:140px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:36px;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')">📄</div>`)
         : `<img src="${d.image_url}" oncontextmenu="return false" style="width:100%;height:140px;object-fit:cover;display:block;cursor:zoom-in;" onclick="openImageLightbox('${d.image_url}')"/>`;
       return `
       <div style="border:0.5px solid var(--bdr);border-radius:10px;overflow:hidden;background:var(--surf);">
@@ -1026,8 +1030,17 @@ async function addDesignCatalogItem(){
   progressEl.style.display = 'block';
   try{
     const { url } = await YS.uploadFile('design-catalog', file);
+    let thumbnail_url = null;
+    if(/\.pdf$/i.test(file.name)){
+      progressEl.textContent = 'Generating PDF thumbnail…';
+      try{
+        const thumbFile = await generatePdfThumbnailFile(file);
+        const thumbUpload = await YS.uploadFile('design-catalog', thumbFile);
+        thumbnail_url = thumbUpload.url;
+      }catch(e){ console.warn('PDF thumbnail generation failed', e); }
+    }
     await YS.insert('design_catalog', {
-      category, title, image_url: url,
+      category, title, image_url: url, thumbnail_url,
       description: document.getElementById('dc-desc').value.trim(),
       active: true
     });
@@ -1043,6 +1056,24 @@ async function addDesignCatalogItem(){
   }
 }
 
+// Renders page 1 of a PDF File to a PNG thumbnail, wrapped as a File so it
+// can go through the same YS.uploadFile() path as any other image.
+async function generatePdfThumbnailFile(pdfFile){
+  const objUrl = URL.createObjectURL(pdfFile);
+  try{
+    const pdf = await pdfjsLib.getDocument(objUrl).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 0.7 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    return new File([blob], pdfFile.name.replace(/\.pdf$/i,'') + '_thumb.png', { type: 'image/png' });
+  } finally {
+    URL.revokeObjectURL(objUrl);
+  }
+}
 function cleanFilenameToTitle(filename){
   return filename.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -1091,7 +1122,15 @@ async function uploadBulkDesignCatalog(){
     progressEl.textContent = `Uploading ${done+1} of ${toUpload.length}: ${title}…`;
     try{
       const { url } = await YS.uploadFile('design-catalog', files[i]);
-      await YS.insert('design_catalog', { category, title, image_url: url, description: '', active: true });
+      let thumbnail_url = null;
+      if(/\.pdf$/i.test(files[i].name)){
+        try{
+          const thumbFile = await generatePdfThumbnailFile(files[i]);
+          const thumbUpload = await YS.uploadFile('design-catalog', thumbFile);
+          thumbnail_url = thumbUpload.url;
+        }catch(e){ console.warn('PDF thumbnail generation failed for', files[i].name, e); }
+      }
+      await YS.insert('design_catalog', { category, title, image_url: url, thumbnail_url, description: '', active: true });
       done++;
     }catch(e){
       console.error('Bulk upload failed for', files[i].name, e);
@@ -1157,6 +1196,15 @@ async function saveEditDesign(){
     try{
       const { url } = await YS.uploadFile('design-catalog', newFile);
       patch.image_url = url;
+      patch.thumbnail_url = null;
+      if(/\.pdf$/i.test(newFile.name)){
+        progressEl.textContent = 'Generating PDF thumbnail…';
+        try{
+          const thumbFile = await generatePdfThumbnailFile(newFile);
+          const thumbUpload = await YS.uploadFile('design-catalog', thumbFile);
+          patch.thumbnail_url = thumbUpload.url;
+        }catch(e){ console.warn('PDF thumbnail generation failed', e); }
+      }
     }catch(e){
       alert('Image upload failed: '+e.message);
       progressEl.style.display = 'none';

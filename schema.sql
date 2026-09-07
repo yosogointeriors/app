@@ -210,9 +210,10 @@ create table quotation_catalog (
 -- visible to every logged-in customer for browsing/inspiration.
 create table design_catalog (
   id uuid primary key default gen_random_uuid(),
-  category text not null,          -- Kitchen | TV Unit | Wardrobe | False Ceiling | Pooja Unit | Crockery | Bed | Side Unit | Kitchen Accessories | Partition | ...
+  category text not null,          -- Kitchen | TV Unit | Wardrobe | False Ceiling | Pooja Unit | Crockery | Bed | Side Unit | Kitchen Accessories | Partition | Full House Renders | ...
   title text not null,             -- e.g. "Modern L-Shape White Gloss Kitchen"
-  image_url text not null,
+  image_url text not null,         -- the actual file — image or PDF
+  thumbnail_url text,              -- for PDFs: a rendered PNG of page 1, generated at upload time (client-side, via PDF.js)
   description text,                -- optional style/material notes
   active boolean default true,
   created_at timestamptz default now()
