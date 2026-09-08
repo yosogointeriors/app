@@ -236,9 +236,14 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           <input type="text" id="f-search" placeholder="Search name / phone…" oninput="renderLeads()"/>
           <button class="btn btn-c" style="margin-left:auto;" onclick="openLeadForm()">+ Add Lead Manually</button>
         </div>
+        <div id="bulk-convert-bar" style="display:none;background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px;margin-bottom:12px;align-items:center;gap:12px;">
+          <span id="bulk-convert-count" style="font-size:13px;font-weight:600;"></span>
+          <button class="btn btn-c btn-sm" onclick="bulkConvertToProjects()">🏗 Convert to Project &amp; Customer Login</button>
+          <button class="btn btn-sm" onclick="clearLeadSelection()">Clear Selection</button>
+        </div>
         <div class="adm-card" style="padding:0;overflow-x:auto;">
           <table>
-            <thead><tr><th>Lead</th><th>Source</th><th>City</th><th>Project</th><th>Assigned</th><th>Status</th><th>Quotation</th><th>Created</th></tr></thead>
+            <thead><tr><th style="width:26px;"><input type="checkbox" id="lead-select-all" onchange="toggleSelectAllLeads(this.checked)"/></th><th>Lead</th><th>Source</th><th>City</th><th>Project</th><th>Assigned</th><th>Status</th><th>Quotation</th><th>Created</th></tr></thead>
             <tbody id="leads-tbody"></tbody>
           </table>
         </div>
@@ -665,20 +670,59 @@ function renderLeads(){
   if(fCity) leads=leads.filter(l=>l.city===fCity);
   if(fSearch) leads=leads.filter(l=>(l.name||'').toLowerCase().includes(fSearch)||(l.phone||'').includes(fSearch));
   const team = YS.all('team_profiles');
+  const projects = YS.all('projects');
   document.getElementById('leads-tbody').innerHTML = leads.map(l=>{
     const assignee = team.find(t=>t.id===l.assigned_to);
     const partner = team.find(t=>t.id===l.partner_id);
+    const hasProject = projects.some(p=>p.lead_id===l.id);
     return `<tr onclick="openLeadDetail('${l.id}')">
+      <td onclick="event.stopPropagation();"><input type="checkbox" class="lead-select-cb" data-id="${l.id}" onchange="updateBulkConvertBar()"/></td>
       <td><b>${l.name}</b><br><span style="color:var(--mut);font-size:11.5px;">${l.phone}</span></td>
       <td>${SOURCE_LABEL[l.source]||l.source}${l.fb_campaign_name?`<br><span style="color:var(--hnt);font-size:10.5px;">${l.fb_campaign_name}</span>`:''}</td>
       <td>${l.city||'—'}</td>
-      <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
+      <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span>${hasProject?' <span class="pill p-ok" style="margin-left:4px;">Has Project</span>':''}</td>
       <td>${assignee?assignee.name:'<span style="color:var(--hnt);">Unassigned</span>'}${partner?`<br><span style="color:var(--hnt);font-size:10.5px;">via ${partner.name}</span>`:''}</td>
       <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span>${l.site_ready===true?' <span class="pill p-ok" title="Site ready for design & installation">✓ Ready</span>':l.site_ready===false?' <span class="pill p-wrn" title="Site not ready yet">Not Ready</span>':''}</td>
-      <td>${(()=>{ const proj=YS.all('projects').find(p=>p.lead_id===l.id); const q=proj?YS.all('quotations').filter(x=>x.project_id===proj.id).sort((a,b)=>b.version-a.version)[0]:null; return q ? `₹${Number(q.total_amount||0).toLocaleString('en-IN')}<br><span style="color:var(--mut);font-size:10.5px;cursor:pointer;text-decoration:underline;" onclick="event.stopPropagation();${q.source==='offline'?`window.open('${q.file_url}','_blank')`:`adminDownloadQuotationPDF('${q.id}')`}">${q.source==='offline'?'View File':'Download PDF'}</span>` : '<span style="color:var(--hnt);">—</span>'; })()}</td>
+      <td>${(()=>{ const proj=projects.find(p=>p.lead_id===l.id); const q=proj?YS.all('quotations').filter(x=>x.project_id===proj.id).sort((a,b)=>b.version-a.version)[0]:null; return q ? `₹${Number(q.total_amount||0).toLocaleString('en-IN')}<br><span style="color:var(--mut);font-size:10.5px;cursor:pointer;text-decoration:underline;" onclick="event.stopPropagation();${q.source==='offline'?`window.open('${q.file_url}','_blank')`:`adminDownloadQuotationPDF('${q.id}')`}">${q.source==='offline'?'View File':'Download PDF'}</span>` : '<span style="color:var(--hnt);">—</span>'; })()}</td>
       <td style="color:var(--mut);font-size:11.5px;">${new Date(l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:30px;">No leads match these filters.</td></tr>`;
+  }).join('') || `<tr><td colspan="9" style="text-align:center;color:var(--mut);padding:30px;">No leads match these filters.</td></tr>`;
+  updateBulkConvertBar();
+}
+function toggleSelectAllLeads(checked){
+  document.querySelectorAll('.lead-select-cb').forEach(cb=>cb.checked=checked);
+  updateBulkConvertBar();
+}
+function clearLeadSelection(){
+  document.querySelectorAll('.lead-select-cb').forEach(cb=>cb.checked=false);
+  document.getElementById('lead-select-all').checked = false;
+  updateBulkConvertBar();
+}
+function updateBulkConvertBar(){
+  const selected = Array.from(document.querySelectorAll('.lead-select-cb:checked'));
+  const bar = document.getElementById('bulk-convert-bar');
+  if(!selected.length){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  document.getElementById('bulk-convert-count').textContent = `${selected.length} lead${selected.length>1?'s':''} selected`;
+}
+async function bulkConvertToProjects(){
+  const ids = Array.from(document.querySelectorAll('.lead-select-cb:checked')).map(cb=>cb.dataset.id);
+  if(!ids.length) return;
+  if(!confirm(`Convert ${ids.length} selected lead(s) to live projects and create their customer portal logins? Leads that already have a project will be skipped.`)) return;
+  const projects = YS.all('projects');
+  let converted = 0, skipped = 0, failed = 0;
+  for(const id of ids){
+    if(projects.some(p=>p.lead_id===id)){ skipped++; continue; }
+    try{
+      const lead = YS.find('leads', id);
+      await YS.createProjectFromLead(lead);
+      converted++;
+    }catch(e){ console.error('Conversion failed for lead', id, e); failed++; }
+  }
+  await YS.refresh('projects');
+  clearLeadSelection();
+  renderAll();
+  alert(`✓ Converted ${converted} lead(s) to projects with customer logins.${skipped?`\n${skipped} already had a project (skipped).`:''}${failed?`\n${failed} failed — check the browser console for details.`:''}`);
 }
 function adminDownloadQuotationPDF(quoteId){
   const q = YS.find('quotations', quoteId);
