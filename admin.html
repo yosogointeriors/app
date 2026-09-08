@@ -748,6 +748,7 @@ function openLeadDetail(id){
       </div>
     </div>
     ${l.status==='booked' ? `<button class="btn btn-c btn-f" style="margin-bottom:16px;" onclick="convertToProject('${id}')">🏗 Convert to Live Project →</button>`:''}
+    <button class="btn btn-f" style="margin-bottom:16px;" onclick="generateLeadCustomerLogin('${id}')">🔑 Generate / Resend Customer Login</button>
     ${l.status==='lost' && l.lost_reason ? `<div class="adm-card" style="background:var(--no-bg);margin-bottom:16px;"><b>Lost reason:</b> ${l.lost_reason}</div>`:''}
     <div class="adm-card-title" style="font-size:13px;margin-bottom:8px;">Notes &amp; Activity</div>
     <div class="fr" style="display:flex;gap:8px;">
@@ -757,6 +758,15 @@ function openLeadDetail(id){
     <div>${notes.map(n=>`<div class="note-item">${n.note}<div class="note-meta">${new Date(n.created_at).toLocaleString('en-IN')}</div></div>`).join('') || '<div style="color:var(--mut);font-size:12.5px;">No notes yet.</div>'}</div>
   `;
   document.getElementById('lead-modal').classList.add('open');
+}
+async function generateLeadCustomerLogin(id){
+  const l = YS.find('leads', id);
+  if(!l){ alert('Lead not found.'); return; }
+  if(!confirm(`Generate/reset a customer portal login for ${l.name} (${l.phone})? Any existing PIN for this number will stop working immediately.`)) return;
+  try{
+    const { pin } = await YS.setCustomerPin({ lead_id: id, name: l.name, phone: l.phone });
+    alert(`🔑 Customer login ready for ${l.name}\n\nPhone: ${l.phone}\nPIN: ${pin}\n\nShare this with them directly — they can log in at the customer portal now, even before their project is booked. Find them anytime in the Customers tab.`);
+  }catch(e){ alert('Could not generate login: '+e.message); }
 }
 async function quickUpdateStatus(id){
   const v = document.getElementById('lm-status').value;
@@ -1303,12 +1313,17 @@ async function renderCustomers(){
     return;
   }
   const projects = YS.all('projects');
+  const leads = YS.all('leads');
   tbody.innerHTML = CUSTOMERS_CACHE.map(c=>{
     const proj = projects.find(p=>p.id===c.project_id);
+    const lead = leads.find(l=>l.id===c.lead_id);
+    const projectCell = proj
+      ? proj.project_name
+      : (lead ? `<span class="pill p-wrn">Lead stage</span> ${lead.name}${lead.city?' — '+lead.city:''}` : '<span style="color:var(--hnt);">No project linked</span>');
     return `<tr>
       <td><b>${c.name||'—'}</b></td>
       <td>${c.phone}</td>
-      <td>${proj?proj.project_name:'<span style="color:var(--hnt);">No project linked</span>'}</td>
+      <td>${projectCell}</td>
       <td><code style="font-size:13px;font-weight:700;letter-spacing:1px;">${c.otp||'—'}</code></td>
       <td style="color:var(--mut);font-size:11.5px;">${new Date(c.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</td>
       <td style="white-space:nowrap;">
@@ -1343,7 +1358,7 @@ async function resetCustomerPinFromList(id){
   if(!c){ alert('Customer not found.'); return; }
   if(!confirm(`Reset PIN for ${c.name||c.phone}? Their old PIN will stop working immediately.`)) return;
   try{
-    const { pin } = await YS.setCustomerPin({ project_id: c.project_id, name: c.name, phone: c.phone });
+    const { pin } = await YS.setCustomerPin({ project_id: c.project_id, lead_id: c.lead_id, name: c.name, phone: c.phone });
     alert(`🔑 New PIN for ${c.name||c.phone}: ${pin}\n\nShare this with them directly.`);
     renderCustomers();
   }catch(e){ alert('Could not reset PIN: '+e.message); }

@@ -42,7 +42,8 @@ create table team_profiles (
 
 create table customer_accounts (
   id uuid primary key default gen_random_uuid(),
-  project_id uuid,                 -- FK added below, once "projects" exists
+  lead_id uuid,                    -- FK added below, once "leads" exists; set as soon as a login is generated, even pre-project
+  project_id uuid,                 -- FK added below, once "projects" exists; set once/if the lead becomes a project
   name text,
   phone text unique not null,
   otp text,                        -- OTP-based login, phone as username
@@ -112,6 +113,9 @@ create table projects (
 alter table customer_accounts
   add constraint customer_accounts_project_id_fkey
   foreign key (project_id) references projects(id);
+alter table customer_accounts
+  add constraint customer_accounts_lead_id_fkey
+  foreign key (lead_id) references leads(id) on delete cascade;
 
 -- 9-stage default project journey, one row seeded per project
 create table project_stages (
