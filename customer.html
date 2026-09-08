@@ -155,6 +155,11 @@ input:focus,textarea:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(16
         <div id="home-summary"></div>
       </div>
       <div class="card">
+        <div class="card-title">📐 Floor Plan</div>
+        <div class="card-sub">Share your floor plan so our design team can start on your quotation.</div>
+        <div id="floorplan-section"></div>
+      </div>
+      <div class="card">
         <div class="card-title">Next Payment Due</div>
         <div id="home-nextpay"></div>
       </div>
@@ -283,7 +288,7 @@ function renderAll(){
     document.getElementById('home-summary').innerHTML = `<div style="color:var(--mut);font-size:13px;">Your project isn't live yet. Once your booking is confirmed, everything will appear here.</div>`;
     return;
   }
-  renderHome(); renderDesigns(); renderPayments(); renderLatestQuotation(); renderTimeline(); renderPhotos();
+  renderHome(); renderDesigns(); renderPayments(); renderLatestQuotation(); renderTimeline(); renderPhotos(); renderFloorPlanSection();
 }
 
 function stagesOf(){ return YS.all('project_stages').filter(s=>s.project_id===PROJECT.id).sort((a,b)=>a.stage_order-b.stage_order); }
@@ -458,6 +463,50 @@ async function downloadMyQuotation(quoteId){
   const win = window.open('', '_blank');
   win.document.write(html);
   win.document.close();
+}
+
+function renderFloorPlanSection(){
+  const el = document.getElementById('floorplan-section');
+  if(!el || !PROJECT || !PROJECT.lead_id) return;
+  const plans = YS.all('floor_plans').filter(f=>f.lead_id===PROJECT.lead_id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const latest = plans[0];
+  const statusPill = !latest ? ''
+    : latest.status==='analyzed' ? '<span class="pill p-ok">✓ Received</span>'
+    : latest.status==='analyzing' ? '<span class="pill p-wrn">Reviewing…</span>'
+    : latest.status==='failed' ? '<span class="pill p-ok">✓ Received</span>' // customer doesn't need to see analysis failures — team still has the file
+    : '<span class="pill p-inf">Uploaded</span>';
+  el.innerHTML = `
+    ${latest ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:8px 10px;background:var(--surf2);border-radius:8px;">
+      <span style="font-size:12.5px;">📄 ${latest.file_name||'Floor Plan'}</span>
+      ${statusPill}
+    </div>` : '<div style="font-size:12.5px;color:var(--mut);margin-bottom:10px;">No floor plan uploaded yet.</div>'}
+    <input type="file" id="fp-customer-file" accept=".pdf,.png,.jpg,.jpeg"/>
+    <button class="btn btn-c btn-f" style="margin-top:8px;" onclick="uploadCustomerFloorPlan()">${latest?'Upload a Different Floor Plan':'Upload Floor Plan'}</button>
+    <div id="fp-customer-progress" style="font-size:11.5px;color:var(--mut);margin-top:6px;display:none;"></div>
+  `;
+}
+async function uploadCustomerFloorPlan(){
+  const fileInput = document.getElementById('fp-customer-file');
+  const file = fileInput.files[0];
+  if(!file){ alert('Choose a file to upload.'); return; }
+  if(!PROJECT || !PROJECT.lead_id){ alert('Your project isn\'t linked yet — please contact your design team.'); return; }
+  const progressEl = document.getElementById('fp-customer-progress');
+  progressEl.style.display = 'block';
+  progressEl.textContent = 'Uploading…';
+  try{
+    const { url, name } = await YS.uploadFile('floor-plans', file);
+    const fp = await YS.insert('floor_plans', { lead_id: PROJECT.lead_id, file_url: url, file_name: name, status: 'uploaded' });
+    renderFloorPlanSection();
+    progressEl.textContent = 'Analyzing…';
+    try{ await YS.analyzeFloorPlan(fp.id); await YS.refresh('floor_plans'); }
+    catch(e){ console.warn('Floor plan analysis failed', e); await YS.refresh('floor_plans'); }
+    renderFloorPlanSection();
+    alert('✓ Floor plan received — our design team will review it shortly.');
+  }catch(e){
+    alert('Upload failed: '+e.message);
+  }finally{
+    progressEl.style.display = 'none';
+  }
 }
 
 function renderPayments(){

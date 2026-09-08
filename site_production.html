@@ -307,6 +307,14 @@ function openProjectDetail(id){
         </div>
       </div>`;
     }).join('') || '<span style="color:var(--mut);font-size:12.5px;">No design documents sent yet — check back once the design team hands off.</span>'}</div>
+    <div class="card-title" style="font-size:13px;">Floor Plans</div>
+    <div style="margin-bottom:16px;">${(()=>{
+      const plans = p.lead_id ? YS.all('floor_plans').filter(f=>f.lead_id===p.lead_id) : [];
+      if(!plans.length) return '<span style="color:var(--mut);font-size:12.5px;">None uploaded.</span>';
+      return plans.map(f=>`<div style="display:flex;justify-content:space-between;align-items:center;border:0.5px solid var(--bdr);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
+        <a href="${f.file_url}" target="_blank" style="font-size:12px;font-weight:600;">${f.file_name||'Floor Plan'}</a>
+      </div>`).join('');
+    })()}</div>
     <div class="card-title" style="font-size:13px;">Stage Progress</div>
     ${stages.map(s=>`
       <div class="stage-row">

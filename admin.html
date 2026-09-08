@@ -794,6 +794,21 @@ function openLeadDetail(id){
     ${l.status==='booked' ? `<button class="btn btn-c btn-f" style="margin-bottom:16px;" onclick="convertToProject('${id}')">🏗 Convert to Live Project →</button>`:''}
     <button class="btn btn-f" style="margin-bottom:16px;" onclick="generateLeadCustomerLogin('${id}')">🔑 Generate / Resend Customer Login</button>
     ${l.status==='lost' && l.lost_reason ? `<div class="adm-card" style="background:var(--no-bg);margin-bottom:16px;"><b>Lost reason:</b> ${l.lost_reason}</div>`:''}
+    <div class="adm-card-title" style="font-size:13px;margin-bottom:8px;">Floor Plans</div>
+    <div style="margin-bottom:16px;">${(()=>{
+      const plans = YS.all('floor_plans').filter(f=>f.lead_id===id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+      if(!plans.length) return '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet — by either your team or the customer.</span>';
+      return plans.map(f=>{
+        const statusPill = f.status==='analyzed' ? `<span class="pill p-ok">✓ ${(f.extracted_rooms||[]).length} rooms found</span>`
+          : f.status==='analyzing' ? '<span class="pill p-wrn">Analyzing…</span>'
+          : f.status==='failed' ? '<span class="pill p-no">Analysis failed</span>'
+          : '<span class="pill p-inf">Uploaded</span>';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;border:0.5px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+          <div><a href="${f.file_url}" target="_blank" style="font-size:12.5px;font-weight:600;">${f.file_name||'Floor Plan'}</a></div>
+          <div>${statusPill}</div>
+        </div>`;
+      }).join('');
+    })()}</div>
     <div class="adm-card-title" style="font-size:13px;margin-bottom:8px;">Notes &amp; Activity</div>
     <div class="fr" style="display:flex;gap:8px;">
       <input type="text" id="lm-note-text" placeholder="Add a note…" style="flex:1;"/>
