@@ -1289,12 +1289,15 @@ function sectionToCategory(section){
 // Order matches the Client Requirement Checklist exactly (see
 // CHECKLIST_TEMPLATE below) — "Home Theatre" is appended at the end since
 // it's not part of the checklist but has its own catalog items already.
-const ROOM_LIST = ['Foyer/Entrance','Living Room','Dining','Kitchen','Crockery Unit','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre'];
+const ROOM_LIST = ['Foyer/Entrance','Living Room','Dining','Kitchen','Crockery Unit','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre','False Ceiling','Furniture','Electrical','Doors'];
 // Maps each room in the picker to the underlying catalog category (or
 // categories) it should pull items from — the 3 bedroom rooms share one
 // pool of generic items ("Bedroom" catalog entries), but each item still
 // gets tagged with the SPECIFIC room chosen so the PDF groups it correctly
-// (see addCatalogQItem below).
+// (see addCatalogQItem below). False Ceiling / Furniture / Electrical / Doors
+// aren't physical rooms — they're cross-cutting trades that can apply
+// across the whole house, so they're appended as their own selectable
+// categories rather than tied to one room.
 const ROOM_CATEGORY_MAP = {
   'Foyer/Entrance': ['foyer/entrance'],
   'Living Room': ['living room','living/hall'],
@@ -1308,7 +1311,11 @@ const ROOM_CATEGORY_MAP = {
   'Study/Home Office': ['study/home office'],
   'Bathroom': ['bathroom'],
   'Balcony/Utility': ['balcony/utility'],
-  'Home Theatre': ['home theatre']
+  'Home Theatre': ['home theatre'],
+  'False Ceiling': ['false ceiling'],
+  'Furniture': ['furniture'],
+  'Electrical': ['electrical'],
+  'Doors': ['doors']
 };
 
 let QITEMS = [];

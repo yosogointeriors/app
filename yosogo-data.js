@@ -195,7 +195,7 @@ const YS = (function () {
     // Requirement Checklist's room order — categories not in that canonical
     // list (custom/legacy ones) fall in afterward, in the order they first
     // appeared in this quotation.
-    const CANONICAL_ROOM_ORDER = ['Foyer/Entrance','Living Room','Dining','Kitchen','Crockery Unit','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre'];
+    const CANONICAL_ROOM_ORDER = ['Foyer/Entrance','Living Room','Dining','Kitchen','Crockery Unit','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre','False Ceiling','Furniture','Electrical','Doors'];
     const grouped = {};
     const firstSeenOrder = [];
     items.forEach(it => {
