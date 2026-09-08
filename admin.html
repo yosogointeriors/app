@@ -287,8 +287,13 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           </div>
           <div id="qc-upload-status" style="font-size:12px;color:var(--mut);margin-top:8px;"></div>
         </div>
+        <div id="qc-bulk-remove-bar" style="display:none;background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px;margin-bottom:12px;align-items:center;gap:12px;">
+          <span id="qc-bulk-remove-count" style="font-size:13px;font-weight:600;"></span>
+          <button class="btn btn-d btn-sm" onclick="bulkRemoveQuotationCatalog()">🗑 Remove Selected</button>
+          <button class="btn btn-sm" onclick="clearQCSelection()">Clear Selection</button>
+        </div>
         <div class="adm-card" style="padding:0;overflow-x:auto;">
-          <table><thead><tr><th>Category</th><th>Item</th><th>Material</th><th>Unit</th><th>Rate</th><th>Default?</th><th>Status</th><th></th></tr></thead><tbody id="qcalc-tbody"></tbody></table>
+          <table><thead><tr><th style="width:26px;"><input type="checkbox" id="qc-select-all" onchange="toggleSelectAllQC(this.checked)"/></th><th>Category</th><th>Item</th><th>Material</th><th>Unit</th><th>Rate</th><th>Default?</th><th>Status</th><th></th></tr></thead><tbody id="qcalc-tbody"></tbody></table>
         </div>
       </div>
 
@@ -939,6 +944,7 @@ function renderQuotationCatalog(){
   const items = YS.all('quotation_catalog').sort((a,b)=>a.category.localeCompare(b.category)||a.item_name.localeCompare(b.item_name));
   document.getElementById('qcalc-tbody').innerHTML = items.map(q=>`
     <tr>
+      <td><input type="checkbox" class="qc-select-cb" data-id="${q.id}" onchange="updateQCBulkBar()"/></td>
       <td>${q.category}</td>
       <td><b>${q.item_name}</b>${q.description?`<br><span style="color:var(--mut);font-size:11px;">${q.description.slice(0,70)}${q.description.length>70?'…':''}</span>`:''}</td>
       <td>${q.material_spec||'—'}</td>
@@ -951,7 +957,33 @@ function renderQuotationCatalog(){
         <button class="btn btn-d btn-xs" onclick="event.stopPropagation();deleteQuotationCatalogItem('${q.id}')">Remove</button>
       </td>
     </tr>
-  `).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">No line items yet.</td></tr>`;
+  `).join('') || `<tr><td colspan="9" style="text-align:center;color:var(--mut);padding:20px;">No line items yet.</td></tr>`;
+  updateQCBulkBar();
+}
+function toggleSelectAllQC(checked){
+  document.querySelectorAll('.qc-select-cb').forEach(cb=>cb.checked=checked);
+  updateQCBulkBar();
+}
+function clearQCSelection(){
+  document.querySelectorAll('.qc-select-cb').forEach(cb=>cb.checked=false);
+  const selectAll = document.getElementById('qc-select-all');
+  if(selectAll) selectAll.checked = false;
+  updateQCBulkBar();
+}
+function updateQCBulkBar(){
+  const selected = Array.from(document.querySelectorAll('.qc-select-cb:checked'));
+  const bar = document.getElementById('qc-bulk-remove-bar');
+  if(!bar) return;
+  if(!selected.length){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  document.getElementById('qc-bulk-remove-count').textContent = `${selected.length} item${selected.length>1?'s':''} selected`;
+}
+async function bulkRemoveQuotationCatalog(){
+  const ids = Array.from(document.querySelectorAll('.qc-select-cb:checked')).map(cb=>cb.dataset.id);
+  if(!ids.length) return;
+  if(!confirm(`Remove ${ids.length} selected line item(s) from the calculator? This can't be undone.`)) return;
+  await Promise.all(ids.map(id=>YS.remove('quotation_catalog', id)));
+  renderQuotationCatalog();
 }
 async function addQuotationCatalogItem(){
   const category=document.getElementById('qc-category').value.trim();
