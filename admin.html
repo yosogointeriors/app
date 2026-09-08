@@ -539,6 +539,34 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 
 <!-- EDIT DESIGN CATALOGUE ITEM MODAL -->
 <!-- EDIT QUOTATION CALCULATOR ITEM MODAL -->
+<!-- RECORD PAYMENT MODAL -->
+<div class="modal-overlay" id="record-payment-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Record Payment Received</h3><button class="modal-close" onclick="closeModal('record-payment-modal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="rp-project-id"/>
+      <div class="form-2col">
+        <div class="fr"><label class="fl">Amount (₹)</label><input type="number" id="rp-amount" placeholder="e.g. 200000"/></div>
+        <div class="fr"><label class="fl">Date Received</label><input type="date" id="rp-date"/></div>
+      </div>
+      <div class="form-2col">
+        <div class="fr"><label class="fl">Mode</label>
+          <select id="rp-mode">
+            <option value="Cash">Cash</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="UPI">UPI</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Card">Card</option>
+          </select>
+        </div>
+        <div class="fr"><label class="fl">Milestone (optional)</label><select id="rp-milestone"><option value="">— Not linked to a milestone —</option></select></div>
+      </div>
+      <div class="fr"><label class="fl">Reference / Notes</label><input type="text" id="rp-ref" placeholder="e.g. Cheque no. 123456, received at site visit"/></div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('record-payment-modal')">Cancel</button><button class="btn btn-c" onclick="saveRecordedPayment()">Save Payment</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="edit-qc-modal">
   <div class="modal-box">
     <div class="modal-head"><h3>Edit Line Item</h3><button class="modal-close" onclick="closeModal('edit-qc-modal')">×</button></div>
@@ -946,12 +974,62 @@ function openProjectDetail(id){
     }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded.</span>'}</div>
     <div class="adm-card-title" style="font-size:13px;margin-top:18px;">Site &amp; Factory Photos (${photos.length})</div>
     <div class="gallery">${photos.map(ph=>`<div><img src="${ph.photo_url}"/><div style="font-size:10.5px;margin-top:3px;">${ph.caption||''}</div></div>`).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
-    <div class="adm-card-title" style="font-size:13px;margin-top:18px;">Payment Milestones</div>
-    ${milestones.map(m=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--bdr);font-size:12.5px;">
-      <span>${m.milestone_name} (${m.percentage}%)</span><span>₹${Number(m.amount).toLocaleString('en-IN')} <span class="pill ${m.status==='paid'?'p-ok':'p-wrn'}" style="margin-left:6px;">${m.status}</span></span>
-    </div>`).join('')}
+    <div class="adm-card-title" style="font-size:13px;margin-top:18px;">Payments</div>
+    <div style="margin-bottom:16px;">${renderPaymentsSection(p)}</div>
   `;
   document.getElementById('proj-modal').classList.add('open');
+}
+function renderPaymentsSection(proj){
+  if(!proj) return '<span style="color:var(--mut);font-size:12.5px;">No project yet.</span>';
+  const milestones = YS.all('payment_milestones').filter(m=>m.project_id===proj.id).sort((a,b)=>new Date(a.due_date||0)-new Date(b.due_date||0));
+  const payments = YS.all('payments').filter(pay=>pay.project_id===proj.id && pay.verified).sort((a,b)=>new Date(b.paid_at)-new Date(a.paid_at));
+  const totalValue = Number(proj.total_value)||0;
+  const paid = payments.reduce((s,pay)=>s+Number(pay.amount||0),0);
+  const pending = Math.max(0, totalValue - paid);
+  return `
+    <div class="form-3col" style="margin-bottom:10px;">
+      <div><span class="fl">Total Value</span>₹${totalValue.toLocaleString('en-IN')}</div>
+      <div><span class="fl">Paid So Far</span><span style="color:var(--ok-tx);font-weight:600;">₹${paid.toLocaleString('en-IN')}</span></div>
+      <div><span class="fl">Pending</span><span style="color:${pending>0?'var(--no-tx)':'var(--ok-tx)'};font-weight:600;">₹${pending.toLocaleString('en-IN')}</span></div>
+    </div>
+    <button class="btn btn-c btn-sm" style="margin-bottom:12px;" onclick="openRecordPaymentModal('${proj.id}')">💰 Record Payment Received</button>
+    ${milestones.length ? `<div style="font-size:11px;color:var(--mut);margin-bottom:4px;">Milestones</div><div style="margin-bottom:10px;">${milestones.map(m=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--bdr);font-size:12px;">
+      <span>${m.milestone_name} (${m.percentage}%)${m.due_date?' · Due '+new Date(m.due_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):''}</span>
+      <span>₹${Number(m.amount).toLocaleString('en-IN')} <span class="pill ${m.status==='paid'?'p-ok':m.status==='overdue'?'p-no':'p-wrn'}" style="margin-left:6px;">${m.status}</span></span>
+    </div>`).join('')}</div>` : ''}
+    ${payments.length ? `<div style="font-size:11px;color:var(--mut);margin-bottom:4px;">Payment History</div>${payments.map(pay=>`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11.5px;">
+      <span>${new Date(pay.paid_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})} · ${pay.mode}${pay.txn_ref?' · '+pay.txn_ref:''}</span>
+      <span>₹${Number(pay.amount).toLocaleString('en-IN')}</span>
+    </div>`).join('')}` : '<span style="color:var(--mut);font-size:12px;">No payments recorded yet.</span>'}
+  `;
+}
+function openRecordPaymentModal(projectId){
+  document.getElementById('rp-project-id').value = projectId;
+  document.getElementById('rp-amount').value = '';
+  document.getElementById('rp-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rp-mode').value = 'Cash';
+  document.getElementById('rp-ref').value = '';
+  const milestoneSelect = document.getElementById('rp-milestone');
+  const milestones = YS.all('payment_milestones').filter(m=>m.project_id===projectId && m.status!=='paid');
+  milestoneSelect.innerHTML = '<option value="">— Not linked to a milestone —</option>' + milestones.map(m=>`<option value="${m.id}">${m.milestone_name} (₹${Number(m.amount).toLocaleString('en-IN')})</option>`).join('');
+  document.getElementById('record-payment-modal').classList.add('open');
+}
+async function saveRecordedPayment(){
+  const project_id = document.getElementById('rp-project-id').value;
+  const amount = Number(document.getElementById('rp-amount').value);
+  const dateVal = document.getElementById('rp-date').value;
+  const mode = document.getElementById('rp-mode').value;
+  const milestone_id = document.getElementById('rp-milestone').value || null;
+  const ref = document.getElementById('rp-ref').value.trim();
+  if(!amount || !dateVal){ alert('Amount and date are required.'); return; }
+  await YS.insert('payments', {
+    project_id, milestone_id, amount, mode, txn_ref: ref || null,
+    verified: true, paid_at: new Date(dateVal).toISOString()
+  });
+  if(milestone_id){ await YS.update('payment_milestones', milestone_id, {status:'paid'}); }
+  closeModal('record-payment-modal');
+  renderAll();
+  openProjectDetail(project_id);
 }
 
 async function generateCustomerPin(projectId){
