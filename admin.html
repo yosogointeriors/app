@@ -538,6 +538,30 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 </div>
 
 <!-- EDIT DESIGN CATALOGUE ITEM MODAL -->
+<!-- EDIT QUOTATION CALCULATOR ITEM MODAL -->
+<div class="modal-overlay" id="edit-qc-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Edit Line Item</h3><button class="modal-close" onclick="closeModal('edit-qc-modal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="eqc-id"/>
+      <div class="form-3col" style="margin-bottom:10px;">
+        <div><label class="fl">Category</label><input type="text" id="eqc-category"/></div>
+        <div><label class="fl">Item Name</label><input type="text" id="eqc-name"/></div>
+        <div><label class="fl">Material Spec</label><input type="text" id="eqc-material"/></div>
+      </div>
+      <div class="fr"><label class="fl">Description (shown on the quotation)</label><textarea id="eqc-desc"></textarea></div>
+      <div class="form-3col" style="margin-bottom:12px;">
+        <div><label class="fl">Unit Type</label>
+          <select id="eqc-unit"><option value="sqft">Per sqft (Length × Height × Rate)</option><option value="lump">Lump Sum (flat rate)</option></select>
+        </div>
+        <div><label class="fl">Rate (₹)</label><input type="number" id="eqc-rate"/></div>
+      </div>
+      <div class="fr"><label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;"><input type="checkbox" id="eqc-default"/> Include in every new quotation automatically</label></div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('edit-qc-modal')">Cancel</button><button class="btn btn-c" onclick="saveEditQuotationCatalogItem()">Save Changes</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="edit-design-modal">
   <div class="modal-box">
     <div class="modal-head"><h3>Edit Design</h3><button class="modal-close" onclick="closeModal('edit-design-modal')">×</button></div>
@@ -953,6 +977,7 @@ function renderQuotationCatalog(){
       <td><span class="pill ${q.default_include?'p-inf':'p-no'}" style="cursor:pointer;" onclick="event.stopPropagation();toggleQuotationCatalogDefault('${q.id}')">${q.default_include?'✓ Yes':'No'}</span></td>
       <td><span class="pill ${q.active?'p-ok':'p-no'}">${q.active?'Active':'Inactive'}</span></td>
       <td style="white-space:nowrap;">
+        <button class="btn btn-xs" onclick="event.stopPropagation();openEditQuotationCatalogModal('${q.id}')">Edit</button>
         <button class="btn btn-xs" onclick="event.stopPropagation();toggleQuotationCatalogItem('${q.id}')">Toggle</button>
         <button class="btn btn-d btn-xs" onclick="event.stopPropagation();deleteQuotationCatalogItem('${q.id}')">Remove</button>
       </td>
@@ -1004,6 +1029,35 @@ async function addQuotationCatalogItem(){
 async function toggleQuotationCatalogItem(id){
   const q = YS.find('quotation_catalog', id);
   await YS.update('quotation_catalog', id, {active:!q.active});
+  renderQuotationCatalog();
+}
+function openEditQuotationCatalogModal(id){
+  const q = YS.find('quotation_catalog', id);
+  if(!q){ alert('Item not found.'); return; }
+  document.getElementById('eqc-id').value = q.id;
+  document.getElementById('eqc-category').value = q.category || '';
+  document.getElementById('eqc-name').value = q.item_name || '';
+  document.getElementById('eqc-material').value = q.material_spec || '';
+  document.getElementById('eqc-desc').value = q.description || '';
+  document.getElementById('eqc-unit').value = q.unit_type || 'sqft';
+  document.getElementById('eqc-rate').value = q.rate || '';
+  document.getElementById('eqc-default').checked = !!q.default_include;
+  document.getElementById('edit-qc-modal').classList.add('open');
+}
+async function saveEditQuotationCatalogItem(){
+  const id = document.getElementById('eqc-id').value;
+  const category = document.getElementById('eqc-category').value.trim();
+  const item_name = document.getElementById('eqc-name').value.trim();
+  const rate = Number(document.getElementById('eqc-rate').value);
+  if(!category || !item_name || !rate){ alert('Category, item name and rate are required.'); return; }
+  await YS.update('quotation_catalog', id, {
+    category, item_name,
+    material_spec: document.getElementById('eqc-material').value.trim(),
+    description: document.getElementById('eqc-desc').value.trim(),
+    unit_type: document.getElementById('eqc-unit').value,
+    rate, default_include: document.getElementById('eqc-default').checked
+  });
+  closeModal('edit-qc-modal');
   renderQuotationCatalog();
 }
 async function toggleQuotationCatalogDefault(id){
