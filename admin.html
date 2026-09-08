@@ -1418,7 +1418,11 @@ function openShareCustomerModal(id){
   const portalLink = window.location.origin + '/customer.html';
   const quoteLine = latestQuote
     ? `📄 Latest Quotation: ₹${Number(latestQuote.total_amount||0).toLocaleString('en-IN')} — view and download it anytime in your portal under Payments.`
-    : `Your quotation is being prepared — we'll notify you once it's ready.`;
+    : `📐 If you have a floor plan, please share it with us so we can start preparing your quotation.
+
+We're working on your quotation and will notify you the moment it's ready.
+
+Meanwhile, take a look at our 🖼 Gallery inside the portal — 3D renders and design ideas across Kitchen, Wardrobes, Bedrooms, and more — and let us know which styles you like!`;
   const message = `Hi ${c.name||'there'} Garu,
 
 Your YOSOGO project portal is ready:
