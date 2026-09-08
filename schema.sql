@@ -409,3 +409,12 @@ create policy "anon upload design catalog" on storage.objects
   for insert to anon with check (bucket_id = 'design-catalog');
 create policy "anon read design catalog" on storage.objects
   for select to anon using (bucket_id = 'design-catalog');
+
+insert into storage.buckets (id, name, public)
+values ('payment-proofs', 'payment-proofs', true)
+on conflict (id) do nothing;
+
+create policy "anon upload payment proofs" on storage.objects
+  for insert to anon with check (bucket_id = 'payment-proofs');
+create policy "anon read payment proofs" on storage.objects
+  for select to anon using (bucket_id = 'payment-proofs');

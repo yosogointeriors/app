@@ -562,6 +562,8 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         <div class="fr"><label class="fl">Milestone (optional)</label><select id="rp-milestone"><option value="">— Not linked to a milestone —</option></select></div>
       </div>
       <div class="fr"><label class="fl">Reference / Notes</label><input type="text" id="rp-ref" placeholder="e.g. Cheque no. 123456, received at site visit"/></div>
+      <div class="fr"><label class="fl">Proof of Payment (optional — screenshot or photo)</label><input type="file" id="rp-proof" accept=".png,.jpg,.jpeg,.pdf"/></div>
+      <div id="rp-progress" style="font-size:11.5px;color:var(--mut);margin-top:4px;display:none;"></div>
     </div>
     <div class="modal-foot"><button class="btn" onclick="closeModal('record-payment-modal')">Cancel</button><button class="btn btn-c" onclick="saveRecordedPayment()">Save Payment</button></div>
   </div>
@@ -997,11 +999,21 @@ function renderPaymentsSection(proj){
       <span>${m.milestone_name} (${m.percentage}%)${m.due_date?' · Due '+new Date(m.due_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):''}</span>
       <span>₹${Number(m.amount).toLocaleString('en-IN')} <span class="pill ${m.status==='paid'?'p-ok':m.status==='overdue'?'p-no':'p-wrn'}" style="margin-left:6px;">${m.status}</span></span>
     </div>`).join('')}</div>` : ''}
-    ${payments.length ? `<div style="font-size:11px;color:var(--mut);margin-bottom:4px;">Payment History</div>${payments.map(pay=>`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11.5px;">
+    ${payments.length ? `<div style="font-size:11px;color:var(--mut);margin-bottom:4px;">Payment History</div>${payments.map(pay=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11.5px;">
       <span>${new Date(pay.paid_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})} · ${pay.mode}${pay.txn_ref?' · '+pay.txn_ref:''}</span>
-      <span>₹${Number(pay.amount).toLocaleString('en-IN')}</span>
+      <span style="display:flex;align-items:center;gap:8px;">₹${Number(pay.amount).toLocaleString('en-IN')}${pay.screenshot_url?` <a href="javascript:void(0)" onclick="openImageLightbox('${pay.screenshot_url}')" style="font-size:10.5px;">📎 Proof</a>`:''}</span>
     </div>`).join('')}` : '<span style="color:var(--mut);font-size:12px;">No payments recorded yet.</span>'}
   `;
+}
+// Parses the standard payment terms (this Settings tab) into selectable
+// milestone templates, e.g. "50% Advance: ..." -> {percentage:50, name:'Advance'}
+function parsePaymentTermsMilestones(){
+  const text = (YS.all('payment_settings')[0]||{}).payment_terms_text || '';
+  return text.split('\n').map(l=>l.trim()).filter(Boolean).map(line=>{
+    const m = line.match(/^(\d+(?:\.\d+)?)%\s*([^:]*)/);
+    if(!m) return null;
+    return { percentage: Number(m[1]), name: (m[2]||'').trim() || `${m[1]}% Payment` };
+  }).filter(Boolean);
 }
 function openRecordPaymentModal(projectId){
   document.getElementById('rp-project-id').value = projectId;
@@ -1009,9 +1021,15 @@ function openRecordPaymentModal(projectId){
   document.getElementById('rp-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('rp-mode').value = 'Cash';
   document.getElementById('rp-ref').value = '';
+  document.getElementById('rp-proof').value = '';
+  document.getElementById('rp-progress').style.display = 'none';
+  const existing = YS.all('payment_milestones').filter(m=>m.project_id===projectId);
+  const unpaidExisting = existing.filter(m=>m.status!=='paid');
+  const templates = parsePaymentTermsMilestones().filter(t=>!existing.some(m=>Number(m.percentage)===t.percentage));
   const milestoneSelect = document.getElementById('rp-milestone');
-  const milestones = YS.all('payment_milestones').filter(m=>m.project_id===projectId && m.status!=='paid');
-  milestoneSelect.innerHTML = '<option value="">— Not linked to a milestone —</option>' + milestones.map(m=>`<option value="${m.id}">${m.milestone_name} (₹${Number(m.amount).toLocaleString('en-IN')})</option>`).join('');
+  milestoneSelect.innerHTML = '<option value="">— Not linked to a milestone —</option>'
+    + unpaidExisting.map(m=>`<option value="real:${m.id}">${m.milestone_name} (₹${Number(m.amount).toLocaleString('en-IN')})</option>`).join('')
+    + templates.map(t=>`<option value="template:${t.percentage}:${t.name.replace(/"/g,'&quot;')}">${t.name} — ${t.percentage}% (from payment terms)</option>`).join('');
   document.getElementById('record-payment-modal').classList.add('open');
 }
 async function saveRecordedPayment(){
@@ -1019,14 +1037,41 @@ async function saveRecordedPayment(){
   const amount = Number(document.getElementById('rp-amount').value);
   const dateVal = document.getElementById('rp-date').value;
   const mode = document.getElementById('rp-mode').value;
-  const milestone_id = document.getElementById('rp-milestone').value || null;
+  const milestoneVal = document.getElementById('rp-milestone').value;
   const ref = document.getElementById('rp-ref').value.trim();
   if(!amount || !dateVal){ alert('Amount and date are required.'); return; }
+
+  const progressEl = document.getElementById('rp-progress');
+  const proofFile = document.getElementById('rp-proof').files[0];
+  let screenshot_url = null;
+  if(proofFile){
+    progressEl.style.display = 'block'; progressEl.textContent = 'Uploading proof…';
+    try{ const { url } = await YS.uploadFile('payment-proofs', proofFile); screenshot_url = url; }
+    catch(e){ alert('Proof upload failed: '+e.message); progressEl.style.display='none'; return; }
+  }
+
+  let milestone_id = null;
+  if(milestoneVal.startsWith('real:')){
+    milestone_id = milestoneVal.slice(5);
+  } else if(milestoneVal.startsWith('template:')){
+    const parts = milestoneVal.split(':');
+    const pct = Number(parts[1]);
+    const name = parts.slice(2).join(':');
+    const proj = YS.find('projects', project_id);
+    const totalValue = Number(proj?.total_value)||0;
+    const newMilestone = await YS.insert('payment_milestones', {
+      project_id, milestone_name: name, percentage: pct,
+      amount: totalValue * pct/100, status: 'pending'
+    });
+    milestone_id = newMilestone.id;
+  }
+
   await YS.insert('payments', {
     project_id, milestone_id, amount, mode, txn_ref: ref || null,
-    verified: true, paid_at: new Date(dateVal).toISOString()
+    verified: true, paid_at: new Date(dateVal).toISOString(), screenshot_url
   });
   if(milestone_id){ await YS.update('payment_milestones', milestone_id, {status:'paid'}); }
+  progressEl.style.display = 'none';
   closeModal('record-payment-modal');
   renderAll();
   openProjectDetail(project_id);
