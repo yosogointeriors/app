@@ -301,6 +301,7 @@ const YS = (function () {
   ${quotation.notes ? `<div class="section-title">Quotation Notes</div><p style="font-size:11px;white-space:pre-line;margin:0 0 8px;">${quotation.notes}</p>` : ''}
   ${termsList ? `<div class="section-title">Terms &amp; Conditions</div><ol>${termsList}</ol>` : ''}
   ${paymentList ? `<div class="section-title">Payment Terms</div><ul>${paymentList}</ul>` : ''}
+  ${(settings.upi_id || settings.bank_details) ? `<div class="section-title">Payment Details</div><div style="font-size:11.5px;line-height:1.6;">${settings.upi_id ? `UPI ID: <b>${settings.upi_id}</b><br/>` : ''}${settings.bank_details ? settings.bank_details.split(',').map(s=>s.trim()).join('<br/>') : ''}</div>` : ''}
   <div class="gst-note">Note: All rates are exclusive of GST @ 18%, which will be charged extra as applicable.</div>
   <div class="no-print" style="margin-top:24px;text-align:center;">
     <button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer;">🖨️ Print / Save as PDF</button>
