@@ -275,7 +275,7 @@ const YS = (function () {
 <body>
   ${isPreview ? `<div class="preview-banner">⚠ PREVIEW ONLY — NOT YET SENT TO CUSTOMER</div>` : ''}
   <div class="header">
-    <img src="logo.png" alt="Logo"/>
+    <img src="${(typeof window!=='undefined' && window.location ? window.location.origin : '')}/logo.png" alt="Logo"/>
     <div class="title">QUOTATION</div>
     <div class="company">
       <b>${settings.company_name || 'Your Company Name'}</b><br/>
