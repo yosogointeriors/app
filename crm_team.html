@@ -1476,9 +1476,8 @@ function downloadQuotationPDF(quoteId){
   const lead = proj ? YS.find('leads', proj.lead_id) : null;
   const settings = YS.all('payment_settings')[0] || {};
   const html = YS.renderQuotationHTML(q, lead, settings);
-  const win = window.open('', '_blank');
-  win.document.write(html);
-  win.document.close();
+  const blob = new Blob([html], {type:'text/html'});
+  window.open(URL.createObjectURL(blob), '_blank');
 }
 
 function currentQuoteTotals(){
@@ -1501,9 +1500,8 @@ function previewQuotation(){
   };
   const settings = YS.all('payment_settings')[0] || {};
   const html = YS.renderQuotationHTML(tempQuote, lead, settings, true);
-  const win = window.open('', '_blank');
-  win.document.write(html);
-  win.document.close();
+  const blob = new Blob([html], {type:'text/html'});
+  window.open(URL.createObjectURL(blob), '_blank');
 }
 
 async function saveQuotationDraft(){

@@ -460,9 +460,8 @@ async function downloadMyQuotation(quoteId){
   const settings = YS.all('payment_settings')[0] || {};
   const lead = { name: (session && session.name) || (PROJECT ? PROJECT.project_name : '') };
   const html = YS.renderQuotationHTML(q, lead, settings);
-  const win = window.open('', '_blank');
-  win.document.write(html);
-  win.document.close();
+  const blob = new Blob([html], {type:'text/html'});
+  window.open(URL.createObjectURL(blob), '_blank');
 }
 
 function renderFloorPlanSection(){
