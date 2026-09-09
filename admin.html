@@ -584,6 +584,25 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   </div>
 </div>
 
+<!-- FOLLOW-UP MODAL -->
+<div class="modal-overlay" id="followup-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Quotation Follow-up</h3><button class="modal-close" onclick="closeModal('followup-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="fr"><label class="fl">Tone</label>
+        <select id="fu-template" onchange="renderFollowUpMessage()">
+          <option value="gentle">Gentle Reminder</option>
+          <option value="value">Value Reinforcement</option>
+          <option value="urgency">Rates Valid Only a Few More Days</option>
+        </select>
+      </div>
+      <div style="font-size:11.5px;color:var(--mut);margin-bottom:8px;">Open directly in WhatsApp, or copy it to send another way — nothing is sent automatically.</div>
+      <textarea id="followup-message-text" style="min-height:220px;font-family:inherit;font-size:12.5px;line-height:1.5;" readonly></textarea>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('followup-modal')">Close</button><button class="btn" onclick="copyFollowUpMessage()">📋 Copy</button><button class="btn btn-c" onclick="openWhatsAppFollowUp()">📱 Open in WhatsApp</button></div>
+  </div>
+</div>
+
 <!-- EDIT DESIGN CATALOGUE ITEM MODAL -->
 <!-- EDIT QUOTATION CALCULATOR ITEM MODAL -->
 <!-- RECORD PAYMENT MODAL -->
@@ -1707,6 +1726,7 @@ async function renderCustomers(){
     const projectCell = proj
       ? proj.project_name
       : (lead ? `<span class="pill p-wrn">Lead stage</span> ${lead.name}${lead.city?' — '+lead.city:''}` : '<span style="color:var(--hnt);">No project linked</span>');
+    const hasSentQuote = proj && YS.all('quotations').some(q=>q.project_id===proj.id && q.status==='sent');
     return `<tr>
       <td><b>${c.name||'—'}</b></td>
       <td>${c.phone}</td>
@@ -1716,6 +1736,7 @@ async function renderCustomers(){
       <td style="white-space:nowrap;">
         <button class="btn btn-xs" onclick="openEditCustomerModal('${c.id}')">Edit</button>
         <button class="btn btn-xs" onclick="openShareCustomerModal('${c.id}')">📤 Share</button>
+        ${hasSentQuote ? `<button class="btn btn-xs" onclick="openFollowUpModal('${c.id}')">📢 Follow Up</button>` : ''}
         <button class="btn btn-xs" onclick="resetCustomerPinFromList('${c.id}')">Reset PIN</button>
       </td>
     </tr>`;
@@ -1790,6 +1811,74 @@ function openWhatsAppShare(){
   const message = document.getElementById('share-message-text').value;
   let digits = (SHARE_CUSTOMER_PHONE||'').replace(/\D/g,'');
   if(digits.length === 10) digits = '91' + digits; // assume India when no country code is stored
+  const link = `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+  window.open(link, '_blank');
+}
+
+let FOLLOWUP_CUSTOMER_ID = '';
+function openFollowUpModal(customerId){
+  FOLLOWUP_CUSTOMER_ID = customerId;
+  document.getElementById('fu-template').value = 'gentle';
+  renderFollowUpMessage();
+  document.getElementById('followup-modal').classList.add('open');
+}
+function renderFollowUpMessage(){
+  const c = CUSTOMERS_CACHE.find(x=>x.id===FOLLOWUP_CUSTOMER_ID);
+  if(!c) return;
+  const proj = YS.all('projects').find(p=>p.id===c.project_id);
+  const quote = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id && q.status==='sent').sort((a,b)=>b.version-a.version)[0] : null;
+  const amount = quote ? '₹'+Number(quote.total_amount||0).toLocaleString('en-IN') : 'your quotation amount';
+  const daysAgo = quote ? Math.max(0, Math.floor((Date.now()-new Date(quote.created_at).getTime())/86400000)) : 0;
+  const portalLink = window.location.origin + '/customer.html';
+  const name = c.name || 'there';
+  const template = document.getElementById('fu-template').value;
+
+  let body;
+  if(template==='gentle'){
+    body = `Hi ${name} Garu,
+
+Just checking in on the quotation of ${amount} we shared${daysAgo?` ${daysAgo} day${daysAgo>1?'s':''} ago`:''} — have you had a chance to go through it?
+
+Happy to answer any questions or make adjustments if needed. You can view it anytime in your portal:
+🔗 ${portalLink}
+
+— YOSOGO Modular Interiors`;
+  } else if(template==='value'){
+    body = `Hi ${name} Garu,
+
+Wanted to follow up on your quotation of ${amount}. Every piece is custom-built for your space with BWP-grade plywood and a 1-year workmanship warranty — quality that holds up.
+
+If anything's unclear or you'd like to discuss options within your budget, we're happy to help. Your quotation and design gallery are here anytime:
+🔗 ${portalLink}
+
+— YOSOGO Modular Interiors`;
+  } else {
+    body = `Hi ${name} Garu,
+
+Your quotation of ${amount} was prepared based on current material rates, which are valid for a limited time — we'd hate for you to miss the current pricing.
+
+Let us know if you'd like to proceed or have any questions:
+🔗 ${portalLink}
+
+— YOSOGO Modular Interiors`;
+  }
+  document.getElementById('followup-message-text').value = body;
+}
+async function copyFollowUpMessage(){
+  const textarea = document.getElementById('followup-message-text');
+  textarea.select();
+  try{
+    await navigator.clipboard.writeText(textarea.value);
+    alert('✓ Copied to clipboard.');
+  }catch(e){
+    alert('Could not copy automatically — the text is selected, use Ctrl/Cmd+C to copy manually.');
+  }
+}
+function openWhatsAppFollowUp(){
+  const c = CUSTOMERS_CACHE.find(x=>x.id===FOLLOWUP_CUSTOMER_ID);
+  const message = document.getElementById('followup-message-text').value;
+  let digits = (c && c.phone ? c.phone : '').replace(/\D/g,'');
+  if(digits.length === 10) digits = '91' + digits;
   const link = `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
   window.open(link, '_blank');
 }
