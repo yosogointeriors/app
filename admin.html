@@ -230,8 +230,21 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           </select>
           <select id="f-city" onchange="renderLeads()">
             <option value="">All cities</option>
-            <option value="Chennai">Chennai</option>
-            <option value="Coimbatore">Coimbatore</option>
+          </select>
+          <select id="f-assigned" onchange="renderLeads()">
+            <option value="">All assignees</option>
+            <option value="unassigned">Unassigned</option>
+          </select>
+          <select id="f-likelihood" onchange="renderLeads()">
+            <option value="">Any likelihood</option>
+            <option value="high">High (≥70%)</option>
+            <option value="medium">Medium (30–69%)</option>
+            <option value="low">Low (&lt;30%)</option>
+          </select>
+          <select id="f-quote" onchange="renderLeads()">
+            <option value="">Quotation: any</option>
+            <option value="yes">Has quotation</option>
+            <option value="no">No quotation</option>
           </select>
           <input type="text" id="f-search" placeholder="Search name / phone…" oninput="renderLeads()"/>
           <button class="btn btn-c" style="margin-left:auto;" onclick="openLeadForm()">+ Add Lead Manually</button>
@@ -253,6 +266,39 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <div class="admin-tab" id="tab-projects">
         <div class="adm-page-title">Projects</div>
         <div class="adm-page-sub">Every booked lead becomes a project here — tracked across 9 stages to handover.</div>
+        <div class="filter-row">
+          <select id="pf-status" onchange="renderProjects()">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="on_hold">On Hold</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select id="pf-city" onchange="renderProjects()">
+            <option value="">All cities</option>
+          </select>
+          <select id="pf-designer" onchange="renderProjects()">
+            <option value="">All designers</option>
+          </select>
+          <select id="pf-stage" onchange="renderProjects()">
+            <option value="">Any stage</option>
+            <option value="1">1. Site Measurement</option>
+            <option value="2">2. Design Finalization</option>
+            <option value="3">3. Booking &amp; Advance</option>
+            <option value="4">4. Material Procurement</option>
+            <option value="5">5. Production (Factory)</option>
+            <option value="6">6. Quality Check</option>
+            <option value="7">7. Delivery to Site</option>
+            <option value="8">8. Installation</option>
+            <option value="9">9. Final Handover</option>
+          </select>
+          <select id="pf-payment" onchange="renderProjects()">
+            <option value="">Payment: any</option>
+            <option value="fully_paid">Fully Paid</option>
+            <option value="partial">Partially Paid</option>
+            <option value="unpaid">Nothing Paid Yet</option>
+          </select>
+        </div>
         <div id="projects-list"></div>
       </div>
 
@@ -428,6 +474,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           <div class="fr"><label class="fl">Company / Legal Entity Name</label><input type="text" id="set-company-name" placeholder="e.g. URBAN NEST MODULAR FACTORY"/></div>
           <div class="fr"><label class="fl">GSTIN</label><input type="text" id="set-gstin"/></div>
           <div class="fr"><label class="fl">Company Address</label><textarea id="set-address"></textarea></div>
+          <div class="fr"><label class="fl">Company Phone (shown on its own line — don't add this into the address above)</label><input type="text" id="set-company-phone" placeholder="e.g. 7337330557"/></div>
           <div class="fr"><label class="fl">Terms &amp; Conditions (numbered, one per line)</label><textarea id="set-terms" style="min-height:160px;"></textarea></div>
           <div class="fr"><label class="fl">Payment Terms (one per line)</label><textarea id="set-payterms" style="min-height:100px;"></textarea></div>
         </div>
@@ -680,6 +727,10 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 const STATUS_LABEL = {new:'New',contacted:'Contacted',site_visit_scheduled:'Site Visit Scheduled',site_visit_done:'Site Visit Done',design_presented:'Design Presented',quotation_sent:'Quotation Sent',negotiation:'Negotiation',booked:'Booked',lost:'Lost'};
 const STATUS_PILL = {new:'p-inf',contacted:'p-inf',site_visit_scheduled:'p-wrn',site_visit_done:'p-wrn',design_presented:'p-wrn',quotation_sent:'p-wrn',negotiation:'p-wrn',booked:'p-ok',lost:'p-no'};
 const SOURCE_LABEL = {facebook_ad:'📘 Facebook Ad',website:'🌐 Website',referral:'🤝 Referral',whatsapp:'💬 WhatsApp',manual:'✍ Manual'};
+// Suggested likelihood-to-convert by stage, used only when a lead has no
+// manually-set value yet — matches the same logic used in CRM.
+const STATUS_PROBABILITY = {new:10,contacted:20,site_visit_scheduled:30,site_visit_done:40,design_presented:50,quotation_sent:60,negotiation:75,booked:100,lost:0};
+function leadProbability(l){ return (l.conversion_probability===null || l.conversion_probability===undefined) ? (STATUS_PROBABILITY[l.status] ?? 10) : l.conversion_probability; }
 
 function renderAll(){
   renderDashboard(); renderLeads(); renderProjects(); renderQuotationCatalog(); renderDesignCatalog(); renderTeams(); renderSettings();
@@ -722,14 +773,47 @@ function renderLeads(){
   const fStatus=document.getElementById('f-status')?.value||'';
   const fSource=document.getElementById('f-source')?.value||'';
   const fCity=document.getElementById('f-city')?.value||'';
+  const fAssigned=document.getElementById('f-assigned')?.value||'';
+  const fLikelihood=document.getElementById('f-likelihood')?.value||'';
+  const fQuote=document.getElementById('f-quote')?.value||'';
   const fSearch=(document.getElementById('f-search')?.value||'').toLowerCase();
   let leads = YS.all('leads').sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const projects = YS.all('projects');
+  const quotations = YS.all('quotations');
+
+  // City and Assigned dropdowns are populated dynamically from real data,
+  // not hardcoded — keeps them accurate as your team/cities change.
+  const citySelect = document.getElementById('f-city');
+  if(citySelect && citySelect.options.length<=1){
+    const cities = [...new Set(YS.all('leads').map(l=>l.city).filter(Boolean))].sort();
+    citySelect.innerHTML = '<option value="">All cities</option>' + cities.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
+  const assignedSelect = document.getElementById('f-assigned');
+  if(assignedSelect && assignedSelect.options.length<=2){
+    const team = YS.all('team_profiles').filter(t=>t.active!==false);
+    assignedSelect.innerHTML = '<option value="">All assignees</option><option value="unassigned">Unassigned</option>' + team.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  }
+
   if(fStatus) leads=leads.filter(l=>l.status===fStatus);
   if(fSource) leads=leads.filter(l=>l.source===fSource);
   if(fCity) leads=leads.filter(l=>l.city===fCity);
+  if(fAssigned==='unassigned') leads=leads.filter(l=>!l.assigned_to);
+  else if(fAssigned) leads=leads.filter(l=>l.assigned_to===fAssigned);
+  if(fLikelihood){
+    leads = leads.filter(l=>{
+      const p = leadProbability(l);
+      return fLikelihood==='high' ? p>=70 : fLikelihood==='medium' ? (p>=30 && p<70) : p<30;
+    });
+  }
+  if(fQuote){
+    leads = leads.filter(l=>{
+      const proj = projects.find(p=>p.lead_id===l.id);
+      const hasQuote = proj && quotations.some(q=>q.project_id===proj.id);
+      return fQuote==='yes' ? hasQuote : !hasQuote;
+    });
+  }
   if(fSearch) leads=leads.filter(l=>(l.name||'').toLowerCase().includes(fSearch)||(l.phone||'').includes(fSearch));
   const team = YS.all('team_profiles');
-  const projects = YS.all('projects');
   document.getElementById('leads-tbody').innerHTML = leads.map(l=>{
     const assignee = team.find(t=>t.id===l.assigned_to);
     const partner = team.find(t=>t.id===l.partner_id);
@@ -920,8 +1004,39 @@ async function convertToProject(id){
 }
 
 function renderProjects(){
-  const projects = YS.all('projects');
+  const fStatus = document.getElementById('pf-status')?.value||'';
+  const fCity = document.getElementById('pf-city')?.value||'';
+  const fDesigner = document.getElementById('pf-designer')?.value||'';
+  const fStage = document.getElementById('pf-stage')?.value||'';
+  const fPayment = document.getElementById('pf-payment')?.value||'';
+  let projects = YS.all('projects');
   const team = YS.all('team_profiles');
+
+  const citySelect = document.getElementById('pf-city');
+  if(citySelect && citySelect.options.length<=1){
+    const cities = [...new Set(YS.all('projects').map(p=>p.city).filter(Boolean))].sort();
+    citySelect.innerHTML = '<option value="">All cities</option>' + cities.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
+  const designerSelect = document.getElementById('pf-designer');
+  if(designerSelect && designerSelect.options.length<=1){
+    const designers = team.filter(t=>(t.roles||[]).includes('designer'));
+    designerSelect.innerHTML = '<option value="">All designers</option>' + designers.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  }
+
+  if(fStatus) projects = projects.filter(p=>p.status===fStatus);
+  if(fCity) projects = projects.filter(p=>p.city===fCity);
+  if(fDesigner) projects = projects.filter(p=>p.designer_id===fDesigner);
+  if(fStage) projects = projects.filter(p=>String(p.current_stage_order)===fStage);
+  if(fPayment){
+    projects = projects.filter(p=>{
+      const paid = YS.all('payments').filter(pay=>pay.project_id===p.id && pay.verified).reduce((s,pay)=>s+Number(pay.amount||0),0);
+      const total = Number(p.total_value)||0;
+      if(fPayment==='fully_paid') return total>0 && paid>=total;
+      if(fPayment==='unpaid') return paid<=0;
+      return paid>0 && paid<total;
+    });
+  }
+
   document.getElementById('projects-list').innerHTML = projects.map(p=>{
     const stages = YS.all('project_stages').filter(s=>s.project_id===p.id).sort((a,b)=>a.stage_order-b.stage_order);
     const done = stages.filter(s=>s.status==='completed').length;
@@ -941,7 +1056,7 @@ function renderProjects(){
         <span>₹${(paid/100000).toFixed(1)}L collected of ₹${(p.total_value/100000).toFixed(1)}L</span>
       </div>
     </div>`;
-  }).join('') || `<div class="adm-card" style="text-align:center;color:var(--mut);">No projects yet. Mark a lead as "Booked" then convert it to a project.</div>`;
+  }).join('') || `<div class="adm-card" style="text-align:center;color:var(--mut);">No projects match these filters.</div>`;
 }
 
 function openProjectDetail(id){
@@ -1682,6 +1797,7 @@ function renderSettings(){
     document.getElementById('set-company-name').value=s.company_name||'';
     document.getElementById('set-gstin').value=s.gstin||'';
     document.getElementById('set-address').value=s.company_address||'';
+    document.getElementById('set-company-phone').value=s.company_phone||'';
     document.getElementById('set-terms').value=s.quotation_terms||'';
     document.getElementById('set-payterms').value=s.payment_terms_text||'';
   }
@@ -1694,6 +1810,7 @@ async function saveSettings(){
     company_name:document.getElementById('set-company-name').value.trim(),
     gstin:document.getElementById('set-gstin').value.trim(),
     company_address:document.getElementById('set-address').value.trim(),
+    company_phone:document.getElementById('set-company-phone').value.trim(),
     quotation_terms:document.getElementById('set-terms').value.trim(),
     payment_terms_text:document.getElementById('set-payterms').value.trim()
   };

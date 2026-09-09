@@ -174,6 +174,23 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
             <option value="me">Assigned to me</option>
             <option value="unassigned">Unassigned</option>
           </select>
+          <select id="f-source" onchange="renderPipeline()">
+            <option value="">All sources</option>
+            <option value="facebook_ad">Facebook Ad</option>
+            <option value="website">Website</option>
+            <option value="referral">Referral</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="manual">Manual</option>
+          </select>
+          <select id="f-city" onchange="renderPipeline()">
+            <option value="">All cities</option>
+          </select>
+          <select id="f-likelihood" onchange="renderPipeline()">
+            <option value="">Any likelihood</option>
+            <option value="high">High (≥70%)</option>
+            <option value="medium">Medium (30–69%)</option>
+            <option value="low">Low (&lt;30%)</option>
+          </select>
         </div>
         <div class="card" style="padding:0;overflow-x:auto;">
           <table><thead><tr><th>Lead</th><th>Project</th><th>City</th><th>Source</th><th>Status</th><th>Likelihood</th><th>Quotation</th><th>Last Update</th></tr></thead><tbody id="pipe-tbody"></tbody></table>
@@ -183,6 +200,30 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <div class="tab" id="tab-projects">
         <div class="page-title">My Projects</div>
         <div class="page-sub">Booked leads you've designed for — track their build from here too.</div>
+        <div class="filter-row">
+          <select id="pf-status" onchange="renderProjects()">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="on_hold">On Hold</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select id="pf-city" onchange="renderProjects()">
+            <option value="">All cities</option>
+          </select>
+          <select id="pf-stage" onchange="renderProjects()">
+            <option value="">Any stage</option>
+            <option value="1">1. Site Measurement</option>
+            <option value="2">2. Design Finalization</option>
+            <option value="3">3. Booking &amp; Advance</option>
+            <option value="4">4. Material Procurement</option>
+            <option value="5">5. Production (Factory)</option>
+            <option value="6">6. Quality Check</option>
+            <option value="7">7. Delivery to Site</option>
+            <option value="8">8. Installation</option>
+            <option value="9">9. Final Handover</option>
+          </select>
+        </div>
         <div id="myprojects-list"></div>
       </div>
 
@@ -709,6 +750,9 @@ function renderCrmDashboard(){
 function renderPipeline(){
   const fStatus = document.getElementById('f-status')?.value||'';
   const fAssigned = document.getElementById('f-assigned')?.value||'';
+  const fSource = document.getElementById('f-source')?.value||'';
+  const fCity = document.getElementById('f-city')?.value||'';
+  const fLikelihood = document.getElementById('f-likelihood')?.value||'';
   let leads = myLeads().sort((a,b)=>new Date(b.updated_at||b.created_at)-new Date(a.updated_at||a.created_at));
   const total = leads.length, booked = leads.filter(l=>l.status==='booked').length, lost = leads.filter(l=>l.status==='lost').length;
   const open = leads.filter(l=>!['booked','lost'].includes(l.status)).length;
@@ -718,9 +762,22 @@ function renderPipeline(){
     <div class="stat-card"><div class="stat-num">${booked}</div><div class="stat-lbl">Booked</div></div>
     <div class="stat-card"><div class="stat-num">${total?Math.round(booked/total*100):0}%</div><div class="stat-lbl">Conversion</div></div>
   `;
+  const citySelect = document.getElementById('f-city');
+  if(citySelect && citySelect.options.length<=1){
+    const cities = [...new Set(YS.all('leads').map(l=>l.city).filter(Boolean))].sort();
+    citySelect.innerHTML = '<option value="">All cities</option>' + cities.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
   if(fStatus) leads = leads.filter(l=>l.status===fStatus);
   if(fAssigned==='me') leads = leads.filter(l=>l.assigned_to===session.id);
   else if(fAssigned==='unassigned') leads = leads.filter(l=>!l.assigned_to);
+  if(fSource) leads = leads.filter(l=>l.source===fSource);
+  if(fCity) leads = leads.filter(l=>l.city===fCity);
+  if(fLikelihood){
+    leads = leads.filter(l=>{
+      const p = leadProbability(l);
+      return fLikelihood==='high' ? p>=70 : fLikelihood==='medium' ? (p>=30 && p<70) : p<30;
+    });
+  }
   document.getElementById('pipe-tbody').innerHTML = leads.map(l=>{
     const q = latestQuotation(l.id);
     return `<tr onclick="openLeadDetail('${l.id}')">
@@ -1567,9 +1624,23 @@ async function saveOfflineQuotation(){
 }
 
 function renderProjects(){
+  const fStatus = document.getElementById('pf-status')?.value||'';
+  const fCity = document.getElementById('pf-city')?.value||'';
+  const fStage = document.getElementById('pf-stage')?.value||'';
   const leadIds = myLeads().map(l=>l.id);
-  const projects = YS.all('projects').filter(p=>leadIds.includes(p.lead_id) || p.designer_id===session.id);
+  let projects = YS.all('projects').filter(p=>leadIds.includes(p.lead_id) || p.designer_id===session.id);
   const stages = YS.all('project_stages');
+
+  const citySelect = document.getElementById('pf-city');
+  if(citySelect && citySelect.options.length<=1){
+    const cities = [...new Set(YS.all('projects').map(p=>p.city).filter(Boolean))].sort();
+    citySelect.innerHTML = '<option value="">All cities</option>' + cities.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
+
+  if(fStatus) projects = projects.filter(p=>p.status===fStatus);
+  if(fCity) projects = projects.filter(p=>p.city===fCity);
+  if(fStage) projects = projects.filter(p=>String(p.current_stage_order)===fStage);
+
   document.getElementById('myprojects-list').innerHTML = projects.map(p=>{
     const st = stages.filter(s=>s.project_id===p.id).sort((a,b)=>a.stage_order-b.stage_order);
     const current = st.find(s=>s.status==='in_progress');
@@ -1577,7 +1648,7 @@ function renderProjects(){
       <div class="card-title">${p.project_name}</div>
       <div class="card-sub">${p.city} · ₹${(p.total_value/100000).toFixed(1)}L · Current stage: ${current?current.stage_name:(st.every(s=>s.status==='completed')?'Completed':'Not started')}</div>
     </div>`;
-  }).join('') || `<div class="card" style="text-align:center;color:var(--mut);">No live projects yet.</div>`;
+  }).join('') || `<div class="card" style="text-align:center;color:var(--mut);">No projects match these filters.</div>`;
 }
 
 function renderPerformance(){
