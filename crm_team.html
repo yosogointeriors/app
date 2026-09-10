@@ -1419,7 +1419,7 @@ function sectionToCategory(section){
 // Order matches the Client Requirement Checklist exactly (see
 // CHECKLIST_TEMPLATE below) — "Home Theatre" is appended at the end since
 // it's not part of the checklist but has its own catalog items already.
-const ROOM_LIST = ['Foyer/Entrance','Hall/Living','Dining','Kitchen','Crockery Unit','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre','False Ceiling','Furniture','Electrical','Doors'];
+const ROOM_LIST = ['Foyer/Entrance','Hall/Living','Dining','Kitchen','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre','False Ceiling','Furniture','Electrical','Doors'];
 // Maps each room in the picker to the underlying catalog category (or
 // categories) it should pull items from — the 3 bedroom rooms share one
 // pool of generic items ("Bedroom" catalog entries), but each item still
@@ -1433,7 +1433,6 @@ const ROOM_CATEGORY_MAP = {
   'Hall/Living': ['living room','living/hall','hall/living'],
   'Dining': ['dining'],
   'Kitchen': ['kitchen'],
-  'Crockery Unit': ['crockery unit'],
   'Pooja Unit': ['pooja unit','puja'],
   'Master Bedroom': ['bedroom'],
   'Bedroom 2': ['bedroom'],

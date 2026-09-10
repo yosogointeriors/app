@@ -195,7 +195,7 @@ const YS = (function () {
     // Requirement Checklist's room order — categories not in that canonical
     // list (custom/legacy ones) fall in afterward, in the order they first
     // appeared in this quotation.
-    const CANONICAL_ROOM_ORDER = ['Foyer/Entrance','Hall/Living','Dining','Kitchen','Crockery Unit','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre','False Ceiling','Furniture','Electrical','Doors'];
+    const CANONICAL_ROOM_ORDER = ['Foyer/Entrance','Hall/Living','Dining','Kitchen','Pooja Unit','Master Bedroom','Bedroom 2','Bedroom 3 / Kids Room','Study/Home Office','Bathroom','Balcony/Utility','Home Theatre','False Ceiling','Furniture','Electrical','Doors'];
     const grouped = {};
     const firstSeenOrder = [];
     items.forEach(it => {
@@ -281,6 +281,7 @@ const YS = (function () {
       <b>${settings.company_name || 'Your Company Name'}</b><br/>
       ${settings.gstin ? `GSTIN ${settings.gstin}<br/>` : ''}
       ${(settings.company_address || '').split(',').join(',<br/>')}
+      ${settings.company_phone ? `<br/>Ph: ${settings.company_phone}` : ''}
     </div>
   </div>
   <div class="metabar">
