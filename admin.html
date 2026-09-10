@@ -1351,12 +1351,17 @@ function downloadQCTemplate(){
   const rows = [
     ['Category','Item Name','Material Spec','Description','Unit Type','Rate','Include In All Quotations'],
     ['Kitchen','L-Shape Base Unit','Plywood + Acrylic','Acrylic shutters made with HDHMR board, 16mm/9mm plywood BWP grade','sqft',900,'No'],
+    ['Kitchen','Countertop (Direct Sqft)','Granite','Enter total sqft directly, no length/height needed','sqft_direct',220,'No'],
+    ['Doors','Door Handles','Brass','Priced per unit — enter however many are needed','qty',600,'No'],
     ['Kitchen','Tandem Baskets','Soft-Close Channels','Tandems with soft close channels','lump',3000,'No'],
     ['Bedroom','Bed 6ft x 6.5ft','Plywood, Lifting Mechanism','Bed made of 19mm/9mm plywood with lifting mechanism','lump',55000,'No'],
     ['General','Delivery & Logistics','','Standard delivery charge','lump',8000,'Yes']
   ];
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:14},{wch:28},{wch:24},{wch:45},{wch:10},{wch:10},{wch:14}];
+  ws['!cols'] = [{wch:26},{wch:28},{wch:24},{wch:45},{wch:12},{wch:10},{wch:14}];
+  XLSX.utils.sheet_add_aoa(ws, [
+    [], ['Unit Type must be exactly one of: sqft, sqft_direct, qty, lump — see the example rows above for how each is used.']
+  ], { origin: -1 });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Quotation Items');
   XLSX.writeFile(wb, 'yosogo_quotation_catalog_template.xlsx');
