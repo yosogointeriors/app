@@ -469,13 +469,31 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 <script>
 let session = null;
 let CURRENT_LEAD_ID = null;
+const SESSION_KEY = 'yosogo_crm_session';
 
-YS.init().then(()=>{
+YS.init().then(async ()=>{
   const btn = document.querySelector('#login-screen .btn-p');
   if(btn){ btn.disabled=false; btn.textContent='Sign In →'; }
+  const saved = localStorage.getItem(SESSION_KEY);
+  if(saved){
+    try{
+      const acc = JSON.parse(saved);
+      await YS.ready();
+      enterApp(acc);
+    }catch(e){ localStorage.removeItem(SESSION_KEY); }
+  }
 });
 YS.onChange(()=>{ if(session) renderAll(); });
 
+function enterApp(acc){
+  session = acc;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-wrap').classList.add('show');
+  document.getElementById('who-name').textContent = acc.name;
+  document.getElementById('who-role').textContent = (acc.roles||[]).map(r=>r.replace('_',' ')).join(', ') + ' · ' + (acc.city||'');
+  document.getElementById('pipe-title').textContent = (acc.roles||[]).includes('sales_head') ? "Team Pipeline" : "My Pipeline";
+  renderAll();
+}
 async function doLogin(){
   const email=document.getElementById('li-email').value.trim();
   const pass=document.getElementById('li-pass').value;
@@ -483,19 +501,19 @@ async function doLogin(){
   errEl.style.display='none';
   try{
     const { account: acc } = await YS.login('team', email, pass);
-    session = acc;
     await YS.ready();
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app-wrap').classList.add('show');
-    document.getElementById('who-name').textContent = acc.name;
-    document.getElementById('who-role').textContent = (acc.roles||[]).map(r=>r.replace('_',' ')).join(', ') + ' · ' + (acc.city||'');
-    document.getElementById('pipe-title').textContent = (acc.roles||[]).includes('sales_head') ? "Team Pipeline" : "My Pipeline";
-    renderAll();
+    localStorage.setItem(SESSION_KEY, JSON.stringify(acc));
+    enterApp(acc);
   }catch(e){
     errEl.style.display='block'; errEl.textContent = e.message || 'Invalid login or inactive account.';
   }
 }
-function logout(){ session=null; document.getElementById('app-wrap').classList.remove('show'); document.getElementById('login-screen').style.display='flex'; }
+function logout(){
+  session=null;
+  localStorage.removeItem(SESSION_KEY);
+  document.getElementById('app-wrap').classList.remove('show');
+  document.getElementById('login-screen').style.display='flex';
+}
 function showTab(tab){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));

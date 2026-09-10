@@ -139,13 +139,29 @@ tr:last-child td{border-bottom:none;}
 <script src="yosogo-data.js"></script>
 <script>
 let session = null;
+const SESSION_KEY = 'yosogo_partner_session';
 
-YS.init().then(()=>{
+YS.init().then(async ()=>{
   const btn = document.querySelector('#login-screen .btn-p');
   if(btn){ btn.disabled=false; btn.textContent='Sign In →'; }
+  const saved = localStorage.getItem(SESSION_KEY);
+  if(saved){
+    try{
+      const acc = JSON.parse(saved);
+      await YS.ready();
+      enterApp(acc);
+    }catch(e){ localStorage.removeItem(SESSION_KEY); }
+  }
 });
 YS.onChange(()=>{ if(session) renderAll(); });
 
+function enterApp(acc){
+  session = acc;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-wrap').classList.add('show');
+  document.getElementById('who-name').textContent = acc.name;
+  renderAll();
+}
 async function doLogin(){
   const email=document.getElementById('li-email').value.trim();
   const pass=document.getElementById('li-pass').value;
@@ -154,17 +170,19 @@ async function doLogin(){
   try{
     const { account: acc } = await YS.login('team', email, pass);
     if(!(acc.roles||[]).includes('partner')){ errEl.style.display='block'; errEl.textContent='This account does not have the Partner role.'; return; }
-    session = acc;
     await YS.ready();
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app-wrap').classList.add('show');
-    document.getElementById('who-name').textContent = acc.name;
-    renderAll();
+    localStorage.setItem(SESSION_KEY, JSON.stringify(acc));
+    enterApp(acc);
   }catch(e){
     errEl.style.display='block'; errEl.textContent = e.message || 'Invalid login.';
   }
 }
-function logout(){ session=null; document.getElementById('app-wrap').classList.remove('show'); document.getElementById('login-screen').style.display='flex'; }
+function logout(){
+  session=null;
+  localStorage.removeItem(SESSION_KEY);
+  document.getElementById('app-wrap').classList.remove('show');
+  document.getElementById('login-screen').style.display='flex';
+}
 function showTab(tab){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+tab));

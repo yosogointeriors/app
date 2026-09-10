@@ -707,13 +707,31 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 <script>
 let adminSession = null;
 let CURRENT_LEAD_ID = null;
+const SESSION_KEY = 'yosogo_admin_session';
 
-YS.init().then(()=>{
+YS.init().then(async ()=>{
   const btn = document.querySelector('#login-screen .btn-p');
   if(btn){ btn.disabled=false; btn.textContent='Sign In →'; }
+  // Restore a previous login automatically — session persists until Logout
+  // is clicked, it doesn't expire just because the tab was closed/refreshed.
+  const saved = localStorage.getItem(SESSION_KEY);
+  if(saved){
+    try{
+      const account = JSON.parse(saved);
+      await YS.ready();
+      enterApp(account);
+    }catch(e){ localStorage.removeItem(SESSION_KEY); }
+  }
 });
 YS.onChange(()=>{ if(adminSession) renderAll(); });
 
+function enterApp(account){
+  adminSession = account;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('admin-wrap').classList.add('show');
+  document.getElementById('who-name').textContent = account.name;
+  renderAll();
+}
 async function doLogin(){
   const email=document.getElementById('li-email').value.trim();
   const pass=document.getElementById('li-pass').value;
@@ -721,17 +739,19 @@ async function doLogin(){
   errEl.style.display='none';
   try{
     const { account } = await YS.login('admin', email, pass);
-    adminSession = account;
     await YS.ready();
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('admin-wrap').classList.add('show');
-    document.getElementById('who-name').textContent = account.name;
-    renderAll();
+    localStorage.setItem(SESSION_KEY, JSON.stringify(account));
+    enterApp(account);
   }catch(e){
     errEl.style.display='block'; errEl.textContent = e.message || 'Invalid email or password.';
   }
 }
-function logout(){ adminSession=null; document.getElementById('admin-wrap').classList.remove('show'); document.getElementById('login-screen').style.display='flex'; }
+function logout(){
+  adminSession=null;
+  localStorage.removeItem(SESSION_KEY);
+  document.getElementById('admin-wrap').classList.remove('show');
+  document.getElementById('login-screen').style.display='flex';
+}
 
 function showTab(tab){
   document.querySelectorAll('.adm-nav-item').forEach(n=>n.classList.toggle('active', n.dataset.tab===tab));

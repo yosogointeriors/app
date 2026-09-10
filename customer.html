@@ -241,13 +241,31 @@ input:focus,textarea:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(16
 let session = null; // customer_account
 let PROJECT = null;
 let PAY_MILESTONE_ID = null;
+const SESSION_KEY = 'yosogo_customer_session';
 
-YS.init().then(()=>{
+YS.init().then(async ()=>{
   const btn = document.querySelector('#step-phone .btn-p');
   if(btn){ btn.disabled=false; btn.textContent='Log In →'; }
+  const saved = localStorage.getItem(SESSION_KEY);
+  if(saved){
+    try{
+      const customer = JSON.parse(saved);
+      await YS.ready();
+      enterApp(customer);
+    }catch(e){ localStorage.removeItem(SESSION_KEY); }
+  }
 });
 YS.onChange(()=>{ if(session && PROJECT) renderAll(); });
 
+function enterApp(customer){
+  session = customer;
+  PROJECT = YS.find('projects', customer.project_id);
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-wrap').classList.add('show');
+  document.getElementById('cust-name').textContent = 'Hi, ' + (customer.name||'').split(' ')[0];
+  document.getElementById('cust-proj').textContent = PROJECT ? PROJECT.project_name : 'No active project';
+  renderAll();
+}
 async function doCustomerLogin(){
   const phone = document.getElementById('li-phone').value.replace(/\D/g,'');
   const pin = document.getElementById('li-pin').value.trim();
@@ -255,8 +273,9 @@ async function doCustomerLogin(){
   errEl.style.display='none';
   try{
     const { customer, project } = await YS.customerLogin(phone, pin);
-    session = customer;
     await YS.ready();
+    localStorage.setItem(SESSION_KEY, JSON.stringify(customer));
+    session = customer;
     PROJECT = project || YS.find('projects', customer.project_id);
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-wrap').classList.add('show');
@@ -269,6 +288,7 @@ async function doCustomerLogin(){
 }
 function logout(){
   session=null; PROJECT=null;
+  localStorage.removeItem(SESSION_KEY);
   document.getElementById('app-wrap').classList.remove('show');
   document.getElementById('step-phone').classList.add('active');
   document.getElementById('login-screen').style.display='flex';
