@@ -92,7 +92,7 @@ create table lead_notes (
 -- ── PROJECTS (created when a lead is marked "booked") ───────────────────────
 create table projects (
   id uuid primary key default gen_random_uuid(),
-  lead_id uuid references leads(id),
+  lead_id uuid references leads(id) unique,  -- one project per lead, enforced — prevents duplicate projects silently splitting a lead's data across two rows
   project_name text,
   project_type text,
   city text,
@@ -184,7 +184,10 @@ create table quotations (
   discount_percent numeric default 0,
   total_amount numeric,            -- final amount AFTER discount — this is what shows everywhere as "the quotation value"
   notes text,                      -- overall quotation note (shown on the PDF, separate from per-item notes)
-  status text default 'draft',     -- draft | sent | approved | revised
+  status text default 'draft',     -- draft | pending_approval | sent | revised
+  approved_by uuid references team_accounts(id),  -- who approved it for sending (sales_head role)
+  approved_at timestamptz,
+  rejection_note text,             -- set when a sales_head sends a pending_approval quotation back for revision
   source text default 'builder',   -- builder | offline  (offline = uploaded file, not built in-app)
   file_url text,                   -- set when source = 'offline'
   file_name text,
@@ -294,6 +297,7 @@ create table payment_settings (
   company_name text,               -- legal entity name (may differ from the YOSOGO brand name)
   gstin text,
   company_address text,
+  company_phone text,              -- shown on its own line on the quotation, kept separate from the address so it can't get run together with it
   quotation_terms text,            -- numbered Terms & Conditions block
   payment_terms_text text,         -- payment milestone breakdown shown on the quotation
   updated_at timestamptz default now()

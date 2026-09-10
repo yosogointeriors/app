@@ -192,6 +192,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         <div class="adm-page-title">Welcome back 👋</div>
         <div class="adm-page-sub">Here's how YOSOGO's pipeline and projects look today.</div>
         <div class="stat-grid" id="dash-stats"></div>
+        <div id="dash-approvals"></div>
         <div class="adm-card">
           <div class="adm-card-title">Leads by Source</div>
           <div class="adm-card-sub">Where your pipeline is coming from</div>
@@ -781,7 +782,7 @@ function renderDashboard(){
   const payments = YS.all('payments');
   const totalRevenue = payments.filter(p=>p.verified).reduce((s,p)=>s+Number(p.amount||0),0);
   const latestQuotesByProject = {};
-  YS.all('quotations').filter(q=>q.status!=='draft').forEach(q=>{
+  YS.all('quotations').filter(q=>q.status==='sent').forEach(q=>{
     const existing = latestQuotesByProject[q.project_id];
     if(!existing || q.version > existing.version) latestQuotesByProject[q.project_id] = q;
   });
@@ -796,6 +797,30 @@ function renderDashboard(){
     <div class="stat-card"><div class="stat-num">₹${(totalRevenue/100000).toFixed(1)}L</div><div class="stat-lbl">Revenue Collected</div></div>
     <div class="stat-card"><div class="stat-num">₹${(pipelineValue/100000).toFixed(1)}L</div><div class="stat-lbl">Quoted Pipeline</div></div>
   `;
+
+  const approvalsEl = document.getElementById('dash-approvals');
+  if(approvalsEl){
+    const pending = YS.all('quotations').filter(q=>q.status==='pending_approval').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+    approvalsEl.innerHTML = pending.length ? `
+      <div class="adm-card">
+        <div class="adm-card-title">⏳ Quotations Awaiting Approval (${pending.length})</div>
+        ${pending.map(q=>{
+          const proj = YS.find('projects', q.project_id);
+          const lead = proj ? YS.find('leads', proj.lead_id) : null;
+          return `<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:0.5px solid var(--bdr);padding:8px 0;">
+            <div>
+              <b>${lead?lead.name:'Unknown lead'}</b> — v${q.version} · ₹${Number(q.total_amount||0).toLocaleString('en-IN')}
+              <div style="font-size:11px;color:var(--mut);">${new Date(q.created_at).toLocaleString('en-IN')}</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-xs" onclick="adminDownloadQuotationPDF('${q.id}')">📄 View</button>
+              <button class="btn btn-c btn-xs" onclick="approveAndSendQuotationAdmin('${q.id}')">✓ Approve</button>
+              <button class="btn btn-d btn-xs" onclick="rejectQuotationAdmin('${q.id}')">↩ Reject</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>` : '';
+  }
 
   const bySource = {};
   leads.forEach(l=>{ bySource[l.source]=(bySource[l.source]||0)+1; });
@@ -920,6 +945,24 @@ function adminDownloadQuotationPDF(quoteId){
   const html = YS.renderQuotationHTML(q, lead, settings);
   const blob = new Blob([html], {type:'text/html'});
   window.open(URL.createObjectURL(blob), '_blank');
+}
+async function approveAndSendQuotationAdmin(quoteId){
+  const q = YS.find('quotations', quoteId);
+  if(!q){ alert('Quotation not found.'); return; }
+  if(!confirm(`Approve and send this ₹${Number(q.total_amount).toLocaleString('en-IN')} quotation to the customer?`)) return;
+  await YS.update('quotations', quoteId, { status:'sent', approved_by: null, approved_at: new Date().toISOString() });
+  await YS.update('projects', q.project_id, {total_value: q.total_amount});
+  const proj = YS.find('projects', q.project_id);
+  if(proj) await YS.update('leads', proj.lead_id, {status:'quotation_sent'});
+  renderAll();
+  alert('✓ Approved and sent to the customer.');
+}
+async function rejectQuotationAdmin(quoteId){
+  const reason = prompt('Why is this being sent back for revision? (shown to whoever built it)');
+  if(reason===null) return;
+  await YS.update('quotations', quoteId, { status:'draft', rejection_note: reason||'No reason given', approved_by:null, approved_at:null });
+  renderAll();
+  alert('↩ Sent back for revision.');
 }
 
 function openLeadForm(){ document.getElementById('add-lead-modal').classList.add('open'); }
@@ -1802,7 +1845,7 @@ function openShareCustomerModal(id){
   if(!c){ alert('Customer not found.'); return; }
   SHARE_CUSTOMER_PHONE = c.phone;
   const proj = YS.all('projects').find(p=>p.id===c.project_id);
-  const quotes = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id && q.status!=='draft').sort((a,b)=>b.version-a.version) : [];
+  const quotes = proj ? YS.all('quotations').filter(q=>q.project_id===proj.id && q.status==='sent').sort((a,b)=>b.version-a.version) : [];
   const latestQuote = quotes[0];
   const portalLink = window.location.origin + '/customer.html';
   const quoteLine = latestQuote

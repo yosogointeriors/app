@@ -454,7 +454,7 @@ async function signOffDesign(id){
 function renderLatestQuotation(){
   const el = document.getElementById('latest-quote-card');
   if(!el) return;
-  const quotes = YS.all('quotations').filter(q=>q.project_id===PROJECT.id && q.status!=='draft').sort((a,b)=>b.version-a.version);
+  const quotes = YS.all('quotations').filter(q=>q.project_id===PROJECT.id && q.status==='sent').sort((a,b)=>b.version-a.version);
   const q = quotes[0];
   if(!q){
     el.innerHTML = `<div class="card-title">Latest Quotation</div><div style="color:var(--mut);font-size:13px;">No quotation sent yet.</div>`;

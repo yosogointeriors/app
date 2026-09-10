@@ -155,6 +155,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
         <div class="page-title">Dashboard</div>
         <div class="page-sub">Live overview across all leads and projects.</div>
         <div class="stat-grid" id="dash-stats" style="grid-template-columns:repeat(5,1fr);"></div>
+        <div id="dash-approvals"></div>
       </div>
 
       <div class="tab" id="tab-pipeline">
@@ -347,7 +348,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <button class="btn" onclick="closeModal('quote-modal')">Cancel</button>
       <button class="btn" onclick="previewQuotation()">👁 Preview</button>
       <button class="btn" onclick="saveQuotationDraft()">💾 Save as Draft</button>
-      <button class="btn btn-c" onclick="saveQuotation()">Send Quotation to Lead</button>
+      <button class="btn btn-c" onclick="submitQuotationForApproval()">Submit for Approval →</button>
     </div>
   </div>
 </div>
@@ -759,7 +760,7 @@ function renderCrmDashboard(){
   const payments = YS.all('payments');
   const totalRevenue = payments.filter(p=>p.verified).reduce((s,p)=>s+Number(p.amount||0),0);
   const latestQuotesByProject = {};
-  YS.all('quotations').filter(q=>q.status!=='draft').forEach(q=>{
+  YS.all('quotations').filter(q=>q.status==='sent').forEach(q=>{
     const existing = latestQuotesByProject[q.project_id];
     if(!existing || q.version > existing.version) latestQuotesByProject[q.project_id] = q;
   });
@@ -773,6 +774,35 @@ function renderCrmDashboard(){
     <div class="stat-card"><div class="stat-num">₹${(totalRevenue/100000).toFixed(1)}L</div><div class="stat-lbl">Revenue Collected</div></div>
     <div class="stat-card"><div class="stat-num">₹${(pipelineValue/100000).toFixed(1)}L</div><div class="stat-lbl">Quoted Pipeline</div></div>
   `;
+  const approvalsEl = document.getElementById('dash-approvals');
+  if(approvalsEl){
+    if((session.roles||[]).includes('sales_head')){
+      const pending = YS.all('quotations').filter(q=>q.status==='pending_approval').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+      approvalsEl.innerHTML = pending.length ? `
+        <div class="card">
+          <div class="card-title">⏳ Quotations Awaiting Your Approval (${pending.length})</div>
+          ${pending.map(q=>{
+            const proj = YS.find('projects', q.project_id);
+            const lead = proj ? YS.find('leads', proj.lead_id) : null;
+            return `<div class="note-item">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <b>${lead?lead.name:'Unknown lead'}</b> — v${q.version} · ₹${Number(q.total_amount||0).toLocaleString('en-IN')}
+                  <div class="note-meta">${new Date(q.created_at).toLocaleString('en-IN')}</div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <button class="btn btn-xs" onclick="downloadQuotationPDF('${q.id}')">📄 View</button>
+                  <button class="btn btn-c btn-xs" onclick="approveAndSendQuotation('${q.id}')">✓ Approve</button>
+                  <button class="btn btn-d btn-xs" onclick="rejectQuotation('${q.id}')">↩ Reject</button>
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>` : '';
+    } else {
+      approvalsEl.innerHTML = '';
+    }
+  }
 }
 
 function renderPipeline(){
@@ -862,22 +892,37 @@ function openLeadDetail(id){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
       ${nextStatus ? `<button class="btn btn-c btn-sm" onclick="advanceStatus('${id}','${nextStatus}')">Move to "${STATUS_LABEL[nextStatus]}" →</button>` : ''}
       <button class="btn btn-sm" onclick="openChecklist('${id}')">📋 Client Checklist</button>
-      ${l.status!=='quotation_sent' && l.status!=='booked' ? `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Build Quotation</button>` : `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Revise Quotation</button>`}
+      ${quotes.length ? `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Revise Quotation</button>` : `<button class="btn btn-sm" onclick="openQuoteBuilder('${id}')">📝 Build Quotation</button>`}
       <button class="btn btn-sm" onclick="openOfflineQuoteModal('${id}')">📎 Upload Offline Quotation</button>
       <button class="btn btn-sm" onclick="uploadDesign('${id}')">🎨 Upload Design Document</button>
       <button class="btn btn-sm" onclick="openFloorPlanUpload('${id}')">📐 Upload Floor Plan</button>
       <button class="btn btn-d btn-sm" onclick="markLost('${id}')">Mark Lost</button>
     </div>
     ${quotes.length ? `<div class="card-title" style="font-size:13px;margin-bottom:8px;">Quotation History</div>
-    <div style="margin-bottom:16px;">${quotes.map(q=>`<div class="note-item" style="display:flex;justify-content:space-between;align-items:center;">
-      <div>
-        <b>v${q.version}</b> — ${q.source==='offline'?'📎 Offline upload':'🧮 Built in-app'} · ₹${Number(q.total_amount||0).toLocaleString('en-IN')} ${q.status==='draft'?'<span class="pill p-wrn">Draft</span>':q.status==='revised'?'<span class="pill p-no">Superseded</span>':''}
-        <div class="note-meta">${new Date(q.created_at).toLocaleString('en-IN')}</div>
+    <div style="margin-bottom:16px;">${quotes.map(q=>{
+      const isApprover = (session.roles||[]).includes('sales_head');
+      const statusPill = q.status==='draft'?'<span class="pill p-wrn">Draft</span>'
+        :q.status==='pending_approval'?'<span class="pill p-inf">⏳ Pending Approval</span>'
+        :q.status==='revised'?'<span class="pill p-no">Superseded</span>'
+        :'<span class="pill p-ok">✓ Sent</span>';
+      return `<div class="note-item">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <b>v${q.version}</b> — ${q.source==='offline'?'📎 Offline upload':'🧮 Built in-app'} · ₹${Number(q.total_amount||0).toLocaleString('en-IN')} ${statusPill}
+          <div class="note-meta">${new Date(q.created_at).toLocaleString('en-IN')}${q.approved_at?` · Approved ${new Date(q.approved_at).toLocaleDateString('en-IN')}`:''}</div>
+        </div>
+        ${q.source==='offline'
+          ? (q.file_url ? `<a href="${q.file_url}" target="_blank" class="btn btn-xs">View File</a>` : '')
+          : `<button class="btn btn-xs" onclick="downloadQuotationPDF('${q.id}')">📄 Download PDF</button>`}
       </div>
-      ${q.source==='offline'
-        ? (q.file_url ? `<a href="${q.file_url}" target="_blank" class="btn btn-xs">View File</a>` : '')
-        : `<button class="btn btn-xs" onclick="downloadQuotationPDF('${q.id}')">📄 Download PDF</button>`}
-    </div>`).join('')}</div>` : ''}
+      ${q.status==='pending_approval' && isApprover ? `<div style="margin-top:8px;display:flex;gap:8px;">
+        <button class="btn btn-c btn-xs" onclick="approveAndSendQuotation('${q.id}')">✓ Approve &amp; Send</button>
+        <button class="btn btn-d btn-xs" onclick="rejectQuotation('${q.id}')">↩ Send Back for Revision</button>
+      </div>` : ''}
+      ${q.status==='pending_approval' && !isApprover ? `<div style="margin-top:6px;font-size:11.5px;color:var(--mut);">Waiting on a Sales Head to approve before this goes to the customer.</div>` : ''}
+      ${q.rejection_note && q.status==='draft' ? `<div style="margin-top:6px;font-size:11.5px;color:var(--no-tx);">↩ Sent back: ${q.rejection_note}</div>` : ''}
+    </div>`;
+    }).join('')}</div>` : ''}
     <div class="card-title" style="font-size:13px;margin-bottom:8px;">Design Documents</div>
     <div style="margin-bottom:8px;">${designs.map(d=>{
       const isImage = /\.(png|jpe?g|gif|webp)$/i.test(d.file_name||d.file_url||'');
@@ -1610,27 +1655,62 @@ async function saveQuotationDraft(){
   if(!proj) proj = await YS.createProjectFromLead(YS.find('leads',id));
   const { items, subtotal, discountPct, total, notes } = currentQuoteTotals();
   const existing = YS.all('quotations').filter(q=>q.project_id===proj.id);
-  // Whatever was previously the "current" version is now superseded —
-  // without this, old sent/draft versions stay counted forever in pipeline totals.
-  await Promise.all(existing.filter(q=>q.status!=='revised').map(q=>YS.update('quotations', q.id, {status:'revised'})));
-  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, subtotal_amount:subtotal, discount_percent:discountPct, total_amount:total, notes:notes||null, status:'draft', source:'builder'});
+  const existingDraft = existing.find(q=>q.status==='draft');
+  if(existingDraft){
+    // Update the SAME draft in place — repeated "Save as Draft" clicks
+    // shouldn't spawn a new version/PDF each time, only the final
+    // submit-for-approval step should.
+    await YS.update('quotations', existingDraft.id, { items, subtotal_amount:subtotal, discount_percent:discountPct, total_amount:total, notes:notes||null });
+  } else {
+    await Promise.all(existing.filter(q=>q.status!=='revised').map(q=>YS.update('quotations', q.id, {status:'revised'})));
+    await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, subtotal_amount:subtotal, discount_percent:discountPct, total_amount:total, notes:notes||null, status:'draft', source:'builder'});
+  }
   closeModal('quote-modal'); renderAll(); openLeadDetail(id);
   alert('✓ Saved as draft — nothing sent to the lead yet. Open "Build/Revise Quotation" again anytime to continue.');
 }
 
-async function saveQuotation(){
+async function submitQuotationForApproval(){
   const id = CURRENT_LEAD_ID;
-  if(!QITEMS.length){ alert('Add at least one item before sending.'); return; }
+  if(!QITEMS.length){ alert('Add at least one item before submitting.'); return; }
   let proj = YS.all('projects').find(p=>p.lead_id===id);
   if(!proj) proj = await YS.createProjectFromLead(YS.find('leads',id));
   const { items, subtotal, discountPct, total, notes } = currentQuoteTotals();
   const existing = YS.all('quotations').filter(q=>q.project_id===proj.id);
-  await Promise.all(existing.filter(q=>q.status!=='revised').map(q=>YS.update('quotations', q.id, {status:'revised'})));
-  await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, subtotal_amount:subtotal, discount_percent:discountPct, total_amount:total, notes:notes||null, status:'sent', source:'builder'});
-  await YS.update('projects', proj.id, {total_value: total});
-  await YS.update('leads', id, {status:'quotation_sent'});
+  const existingDraft = existing.find(q=>q.status==='draft');
+  if(existingDraft){
+    // Reuses the same row/version — submitting doesn't create a brand new
+    // PDF entry on top of the draft that was already there.
+    await YS.update('quotations', existingDraft.id, { items, subtotal_amount:subtotal, discount_percent:discountPct, total_amount:total, notes:notes||null, status:'pending_approval', rejection_note:null });
+  } else {
+    await Promise.all(existing.filter(q=>q.status!=='revised').map(q=>YS.update('quotations', q.id, {status:'revised'})));
+    await YS.insert('quotations',{project_id:proj.id, version:existing.length+1, items, subtotal_amount:subtotal, discount_percent:discountPct, total_amount:total, notes:notes||null, status:'pending_approval', source:'builder'});
+  }
   closeModal('quote-modal'); renderAll(); openLeadDetail(id);
-  alert('✓ Quotation of ₹'+total.toLocaleString('en-IN')+' sent to lead.');
+  alert('✓ Submitted for approval — a Sales Head needs to approve this before it goes to the customer. You\'ll see it move to "Sent" once approved.');
+}
+
+async function approveAndSendQuotation(quoteId){
+  const q = YS.find('quotations', quoteId);
+  if(!q){ alert('Quotation not found.'); return; }
+  if(!confirm(`Approve and send this ₹${Number(q.total_amount).toLocaleString('en-IN')} quotation to the customer?`)) return;
+  await YS.update('quotations', quoteId, { status:'sent', approved_by: session.id, approved_at: new Date().toISOString() });
+  await YS.update('projects', q.project_id, {total_value: q.total_amount});
+  const proj = YS.find('projects', q.project_id);
+  if(proj) await YS.update('leads', proj.lead_id, {status:'quotation_sent'});
+  renderAll();
+  if(proj) openLeadDetail(proj.lead_id);
+  alert('✓ Approved and sent to the customer.');
+}
+
+async function rejectQuotation(quoteId){
+  const reason = prompt('Why is this being sent back for revision? (shown to whoever built it)');
+  if(reason===null) return; // cancelled
+  await YS.update('quotations', quoteId, { status:'draft', rejection_note: reason||'No reason given', approved_by:null, approved_at:null });
+  renderAll();
+  const q = YS.find('quotations', quoteId);
+  const proj = q ? YS.find('projects', q.project_id) : null;
+  if(proj) openLeadDetail(proj.lead_id);
+  alert('↩ Sent back for revision.');
 }
 
 function openOfflineQuoteModal(id){
