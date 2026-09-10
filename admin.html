@@ -316,7 +316,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           <div class="fr"><label class="fl">Description (shown on the quotation)</label><textarea id="qc-desc" placeholder="Optional — full spec text"></textarea></div>
           <div class="form-3col" style="margin-bottom:12px;">
             <div><label class="fl">Unit Type</label>
-              <select id="qc-unit"><option value="sqft">Per sqft (Length × Height × Rate)</option><option value="lump">Lump Sum (flat rate)</option></select>
+              <select id="qc-unit"><option value="sqft">Per sqft (Length × Height × Rate)</option><option value="sqft_direct">Per sqft — Direct Entry (just enter total sqft)</option><option value="qty">Qty × Rate (multiple units)</option><option value="lump">Lump Sum (flat rate)</option></select>
             </div>
             <div><label class="fl">Rate (₹)</label><input type="number" id="qc-rate" placeholder="0"/></div>
           </div>
@@ -648,7 +648,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <div class="fr"><label class="fl">Description (shown on the quotation)</label><textarea id="eqc-desc"></textarea></div>
       <div class="form-3col" style="margin-bottom:12px;">
         <div><label class="fl">Unit Type</label>
-          <select id="eqc-unit"><option value="sqft">Per sqft (Length × Height × Rate)</option><option value="lump">Lump Sum (flat rate)</option></select>
+          <select id="eqc-unit"><option value="sqft">Per sqft (Length × Height × Rate)</option><option value="sqft_direct">Per sqft — Direct Entry (just enter total sqft)</option><option value="qty">Qty × Rate (multiple units)</option><option value="lump">Lump Sum (flat rate)</option></select>
         </div>
         <div><label class="fl">Rate (₹)</label><input type="number" id="eqc-rate"/></div>
       </div>
@@ -1233,8 +1233,8 @@ function renderQuotationCatalog(){
       <td>${q.category}</td>
       <td><b>${q.item_name}</b>${q.description?`<br><span style="color:var(--mut);font-size:11px;">${q.description.slice(0,70)}${q.description.length>70?'…':''}</span>`:''}</td>
       <td>${q.material_spec||'—'}</td>
-      <td>${q.unit_type==='sqft'?'Per sqft':'Lump sum'}</td>
-      <td>₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''}</td>
+      <td>${q.unit_type==='sqft'?'Per sqft (L×H)':q.unit_type==='sqft_direct'?'Per sqft (direct)':q.unit_type==='qty'?'Qty × Rate':'Lump sum'}</td>
+      <td>₹${Number(q.rate).toLocaleString('en-IN')}${(q.unit_type==='sqft'||q.unit_type==='sqft_direct')?'/sqft':''}</td>
       <td><span class="pill ${q.default_include?'p-inf':'p-no'}" style="cursor:pointer;" onclick="event.stopPropagation();toggleQuotationCatalogDefault('${q.id}')">${q.default_include?'✓ Yes':'No'}</span></td>
       <td><span class="pill ${q.active?'p-ok':'p-no'}">${q.active?'Active':'Inactive'}</span></td>
       <td style="white-space:nowrap;">
@@ -1363,7 +1363,7 @@ async function uploadQCExcel(){
       const material_spec = String(r['Material Spec']||r['material_spec']||'').trim();
       const description = String(r['Description']||r['description']||'').trim();
       let unit_type = String(r['Unit Type']||r['unit_type']||'sqft').trim().toLowerCase();
-      if(unit_type!=='sqft' && unit_type!=='lump') unit_type = 'sqft';
+      if(!['sqft','sqft_direct','qty','lump'].includes(unit_type)) unit_type = 'sqft';
       const rate = Number(r['Rate']||r['rate']||0);
       const defaultRaw = String(r['Include In All Quotations']||r['include_in_all_quotations']||r['Default']||'').trim().toLowerCase();
       const default_include = defaultRaw==='yes' || defaultRaw==='true' || defaultRaw==='1';

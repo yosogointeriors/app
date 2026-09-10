@@ -578,8 +578,8 @@ function renderQuotationCatalog(){
       <td>${q.category}</td>
       <td><b>${q.item_name}</b>${q.description?`<br><span style="color:var(--mut);font-size:11px;">${q.description.slice(0,70)}${q.description.length>70?'…':''}</span>`:''}</td>
       <td>${q.material_spec||'—'}</td>
-      <td>${q.unit_type==='sqft'?'Per sqft':'Lump sum'}</td>
-      <td>₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''}</td>
+      <td>${q.unit_type==='sqft'?'Per sqft (L×H)':q.unit_type==='sqft_direct'?'Per sqft (direct)':q.unit_type==='qty'?'Qty × Rate':'Lump sum'}</td>
+      <td>₹${Number(q.rate).toLocaleString('en-IN')}${(q.unit_type==='sqft'||q.unit_type==='sqft_direct')?'/sqft':''}</td>
       <td><span class="pill ${q.default_include?'p-inf':'p-no'}" style="cursor:pointer;" onclick="event.stopPropagation();toggleQuotationCatalogDefault('${q.id}')">${q.default_include?'✓ Yes':'No'}</span></td>
       <td><span class="pill ${q.active?'p-ok':'p-no'}">${q.active?'Active':'Inactive'}</span></td>
       <td style="white-space:nowrap;">
@@ -705,7 +705,7 @@ async function uploadQCExcel(){
       const material_spec = String(r['Material Spec']||r['material_spec']||'').trim();
       const description = String(r['Description']||r['description']||'').trim();
       let unit_type = String(r['Unit Type']||r['unit_type']||'sqft').trim().toLowerCase();
-      if(unit_type!=='sqft' && unit_type!=='lump') unit_type = 'sqft';
+      if(!['sqft','sqft_direct','qty','lump'].includes(unit_type)) unit_type = 'sqft';
       const rate = Number(r['Rate']||r['rate']||0);
       const defaultRaw = String(r['Include In All Quotations']||r['include_in_all_quotations']||r['Default']||'').trim().toLowerCase();
       const default_include = defaultRaw==='yes' || defaultRaw==='true' || defaultRaw==='1';
@@ -1106,7 +1106,7 @@ function floorPlanItemOptionsHTML(room, selectedId){
     .sort((a,b)=>(b.default_include-a.default_include)||a.item_name.localeCompare(b.item_name));
   if(!items.length) return '<option value="">No items yet for this room — add some in Admin</option>';
   return '<option value="">— Choose item —</option>' + items.map(q=>
-    `<option value="${q.id}" ${q.id===selectedId?'selected':''}>${q.default_include?'⭐ ':''}${q.item_name}${q.material_spec?' — '+q.material_spec:''} (₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''})</option>`
+    `<option value="${q.id}" ${q.id===selectedId?'selected':''}>${q.default_include?'⭐ ':''}${q.item_name}${q.material_spec?' — '+q.material_spec:''} (₹${Number(q.rate).toLocaleString('en-IN')}${(q.unit_type==='sqft'||q.unit_type==='sqft_direct')?'/sqft':''})</option>`
   ).join('');
 }
 function updateFpRoomItems(i){
@@ -1424,7 +1424,7 @@ function renderQCPicker(){
   const items = all.filter(q => cats.includes((q.category||'').toLowerCase()) || q.default_include)
     .sort((a,b)=> (b.default_include - a.default_include) || a.item_name.localeCompare(b.item_name));
   itemSelect.innerHTML = items.length
-    ? '<option value="">2. Choose an item…</option>' + items.map(q=>`<option value="${q.id}">${q.default_include?'⭐ ':''}${q.item_name}${q.material_spec?' — '+q.material_spec:''} (₹${Number(q.rate).toLocaleString('en-IN')}${q.unit_type==='sqft'?'/sqft':''})</option>`).join('')
+    ? '<option value="">2. Choose an item…</option>' + items.map(q=>`<option value="${q.id}">${q.default_include?'⭐ ':''}${q.item_name}${q.material_spec?' — '+q.material_spec:''} (₹${Number(q.rate).toLocaleString('en-IN')}${(q.unit_type==='sqft'||q.unit_type==='sqft_direct')?'/sqft':''})</option>`).join('')
     : '<option value="">No items yet for this room — add some in Admin</option>';
 }
 function addCatalogQItem(){
@@ -1435,7 +1435,7 @@ function addCatalogQItem(){
   QITEMS.push({
     item: q.item_name, category: room, material_spec: q.material_spec||'', description: q.description||'',
     unit_type: q.unit_type, length: q.unit_type==='sqft'?0:null, height: q.unit_type==='sqft'?0:null,
-    qty: q.unit_type==='lump'?1:0, rate: Number(q.rate), amount: 0
+    qty: (q.unit_type==='lump'||q.unit_type==='qty') ? 1 : 0, rate: Number(q.rate), amount: 0
   });
   document.getElementById('qc-picker').value = '';
   renderQItems();
@@ -1488,6 +1488,18 @@ function renderQItems(){
         <input type="number" value="${it.height}" placeholder="Height (ft)" oninput="updateItemField(${i},'height',this.value)"/>
         <input type="text" id="qty-readout-${i}" value="${(Number(it.qty)||0).toFixed(1)} sqft" readonly style="background:var(--surf3);"/>
         <input type="number" value="${it.rate}" placeholder="Rate ₹/sqft" oninput="updateItemField(${i},'rate',this.value)"/>`;
+    } else if(it.unit_type==='sqft_direct'){
+      fields = `
+        <input type="text" value="—" readonly style="background:var(--surf3);"/>
+        <input type="text" value="—" readonly style="background:var(--surf3);"/>
+        <input type="number" value="${it.qty}" placeholder="Total sqft" oninput="updateItemField(${i},'qty',this.value)"/>
+        <input type="number" value="${it.rate}" placeholder="Rate ₹/sqft" oninput="updateItemField(${i},'rate',this.value)"/>`;
+    } else if(it.unit_type==='qty'){
+      fields = `
+        <input type="text" value="Per unit" readonly style="background:var(--surf3);"/>
+        <input type="number" value="${it.qty}" placeholder="Qty" oninput="updateItemField(${i},'qty',this.value)"/>
+        <input type="text" value="—" readonly style="background:var(--surf3);"/>
+        <input type="number" value="${it.rate}" placeholder="Rate ₹/unit" oninput="updateItemField(${i},'rate',this.value)"/>`;
     } else {
       fields = `
         <input type="text" value="Lump sum" readonly style="background:var(--surf3);"/>
@@ -1502,7 +1514,9 @@ function renderQItems(){
     </select>`;
     const typePicker = isCustom ? `<select onchange="setCustomItemType(${i},this.value)" style="width:auto;font-size:11px;padding:3px 6px;">
       <option value="lump" ${it.unit_type==='lump'?'selected':''}>Lump Sum</option>
+      <option value="qty" ${it.unit_type==='qty'?'selected':''}>Qty × Rate</option>
       <option value="sqft" ${it.unit_type==='sqft'?'selected':''}>L × B (sqft)</option>
+      <option value="sqft_direct" ${it.unit_type==='sqft_direct'?'selected':''}>Sqft — Direct Entry</option>
     </select>` : '';
     return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:10px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:10px;">
