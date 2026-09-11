@@ -497,7 +497,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 <!-- LEAD DETAIL MODAL -->
 <div class="modal-overlay" id="lead-modal">
   <div class="modal-box wide">
-    <div class="modal-head"><h3 id="lm-title">Lead Detail</h3><button class="modal-close" onclick="closeModal('lead-modal')">×</button></div>
+    <div class="modal-head"><h3 id="lm-title">Lead Detail</h3><div style="display:flex;align-items:center;gap:10px;"><button class="btn btn-xs" onclick="openEditLeadModal(CURRENT_LEAD_ID)">✏ Edit</button><button class="modal-close" onclick="closeModal('lead-modal')">×</button></div></div>
     <div class="modal-body" id="lm-body"></div>
     <div class="modal-foot"><button class="btn" onclick="closeModal('lead-modal')">Close</button></div>
   </div>
@@ -530,10 +530,65 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
   </div>
 </div>
 
+<!-- EDIT LEAD MODAL -->
+<div class="modal-overlay" id="edit-lead-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Edit Lead</h3><button class="modal-close" onclick="closeModal('edit-lead-modal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="el-id"/>
+      <div class="form-2col">
+        <div class="fr"><label class="fl">Name</label><input type="text" id="el-name"/></div>
+        <div class="fr"><label class="fl">Phone</label><input type="text" id="el-phone"/></div>
+        <div class="fr"><label class="fl">Email</label><input type="email" id="el-email"/></div>
+        <div class="fr"><label class="fl">City</label><input type="text" id="el-city"/></div>
+        <div class="fr"><label class="fl">Project Type</label>
+          <select id="el-ptype"><option value="kitchen">Kitchen only</option><option value="wardrobe">Wardrobe only</option><option value="kitchen_wardrobe">Kitchen + Wardrobe</option><option value="full_home">Full Home Interiors</option></select>
+        </div>
+        <div class="fr"><label class="fl">BHK</label><input type="text" id="el-bhk" placeholder="e.g. 3BHK, Villa"/></div>
+        <div class="fr"><label class="fl">Budget Range</label><input type="text" id="el-budget" placeholder="e.g. Under 15L"/></div>
+        <div class="fr"><label class="fl">Source</label>
+          <select id="el-source"><option value="manual">Manual / Walk-in</option><option value="website">Website</option><option value="referral">Referral</option><option value="whatsapp">WhatsApp</option><option value="urban_nest">Urban Nest</option><option value="facebook_ad">Facebook Ad</option></select>
+        </div>
+        <div class="fr"><label class="fl">Job Title</label><input type="text" id="el-job"/></div>
+        <div class="fr"><label class="fl">Exact Location</label><input type="text" id="el-exact-loc"/></div>
+        <div class="fr"><label class="fl">Site Ready?</label>
+          <select id="el-site-ready"><option value="">Unknown</option><option value="yes">Yes</option><option value="no">No</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('edit-lead-modal')">Cancel</button><button class="btn btn-c" onclick="saveEditLead()">Save Changes</button></div>
+  </div>
+</div>
+
+<!-- EDIT PROJECT MODAL -->
+<div class="modal-overlay" id="edit-project-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Edit Project</h3><button class="modal-close" onclick="closeModal('edit-project-modal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="ep-id"/>
+      <div class="form-2col">
+        <div class="fr"><label class="fl">Project Name</label><input type="text" id="ep-name"/></div>
+        <div class="fr"><label class="fl">City</label><input type="text" id="ep-city"/></div>
+        <div class="fr"><label class="fl">Address</label><input type="text" id="ep-address"/></div>
+        <div class="fr"><label class="fl">Status</label>
+          <select id="ep-status"><option value="active">Active</option><option value="on_hold">On Hold</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
+        </div>
+        <div class="fr"><label class="fl">Designer</label><select id="ep-designer"><option value="">— None —</option></select></div>
+        <div class="fr"><label class="fl">Site Manager</label><select id="ep-sitemgr"><option value="">— None —</option></select></div>
+        <div class="fr"><label class="fl">Total Value (₹)</label><input type="number" id="ep-value"/></div>
+        <div class="fr"><label class="fl">Start Date</label><input type="date" id="ep-start"/></div>
+        <div class="fr"><label class="fl">Target Handover</label><input type="date" id="ep-target"/></div>
+        <div class="fr"><label class="fl">Actual Handover</label><input type="date" id="ep-actual"/></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('edit-project-modal')">Cancel</button><button class="btn btn-c" onclick="saveEditProject()">Save Changes</button></div>
+  </div>
+</div>
+
 <!-- PROJECT DETAIL MODAL -->
 <div class="modal-overlay" id="proj-modal">
   <div class="modal-box wide">
-    <div class="modal-head"><h3 id="pm-title">Project</h3><button class="modal-close" onclick="closeModal('proj-modal')">×</button></div>
+    <div class="modal-head"><h3 id="pm-title">Project</h3><div style="display:flex;align-items:center;gap:10px;"><button class="btn btn-xs" id="pm-edit-btn" onclick="openEditProjectModal(document.getElementById('pm-edit-btn').dataset.pid)">✏ Edit</button><button class="modal-close" onclick="closeModal('proj-modal')">×</button></div></div>
     <div class="modal-body" id="pm-body"></div>
     <div class="modal-foot"><button class="btn" onclick="closeModal('proj-modal')">Close</button></div>
   </div>
@@ -1012,6 +1067,88 @@ async function saveNewLead(){
   closeModal('add-lead-modal'); renderAll(); showTab('leads');
 }
 
+function openEditLeadModal(id){
+  const l = YS.find('leads', id);
+  if(!l){ alert('Lead not found.'); return; }
+  document.getElementById('el-id').value = l.id;
+  document.getElementById('el-name').value = l.name || '';
+  document.getElementById('el-phone').value = l.phone || '';
+  document.getElementById('el-email').value = l.email || '';
+  document.getElementById('el-city').value = l.city || '';
+  document.getElementById('el-ptype').value = l.project_type || 'kitchen';
+  document.getElementById('el-bhk').value = l.bhk || '';
+  document.getElementById('el-budget').value = l.budget_range || '';
+  const sourceSelect = document.getElementById('el-source');
+  const knownSources = Array.from(sourceSelect.options).map(o=>o.value);
+  sourceSelect.value = knownSources.includes(l.source) ? l.source : 'manual';
+  document.getElementById('el-job').value = l.job_title || '';
+  document.getElementById('el-exact-loc').value = l.exact_location || '';
+  document.getElementById('el-site-ready').value = l.site_ready===true?'yes':l.site_ready===false?'no':'';
+  document.getElementById('edit-lead-modal').classList.add('open');
+}
+async function saveEditLead(){
+  const id = document.getElementById('el-id').value;
+  const name = document.getElementById('el-name').value.trim();
+  const phone = document.getElementById('el-phone').value.trim();
+  if(!name || !phone){ alert('Name and phone are required.'); return; }
+  const siteReadyVal = document.getElementById('el-site-ready').value;
+  await YS.update('leads', id, {
+    name, phone,
+    email: document.getElementById('el-email').value.trim(),
+    city: document.getElementById('el-city').value.trim(),
+    project_type: document.getElementById('el-ptype').value,
+    bhk: document.getElementById('el-bhk').value.trim(),
+    budget_range: document.getElementById('el-budget').value.trim(),
+    source: document.getElementById('el-source').value,
+    job_title: document.getElementById('el-job').value.trim(),
+    exact_location: document.getElementById('el-exact-loc').value.trim(),
+    site_ready: siteReadyVal==='' ? null : siteReadyVal==='yes'
+  });
+  closeModal('edit-lead-modal');
+  renderAll();
+  openLeadDetail(id);
+}
+
+function openEditProjectModal(id){
+  const p = YS.find('projects', id);
+  if(!p){ alert('Project not found.'); return; }
+  const team = YS.all('team_profiles').filter(t=>t.active!==false);
+  const designers = team.filter(t=>(t.roles||[]).includes('designer'));
+  const siteManagers = team.filter(t=>(t.roles||[]).includes('site_manager'));
+  document.getElementById('ep-id').value = p.id;
+  document.getElementById('ep-name').value = p.project_name || '';
+  document.getElementById('ep-city').value = p.city || '';
+  document.getElementById('ep-address').value = p.address || '';
+  document.getElementById('ep-status').value = p.status || 'active';
+  document.getElementById('ep-designer').innerHTML = '<option value="">— None —</option>' + designers.map(t=>`<option value="${t.id}" ${t.id===p.designer_id?'selected':''}>${t.name}</option>`).join('');
+  document.getElementById('ep-sitemgr').innerHTML = '<option value="">— None —</option>' + siteManagers.map(t=>`<option value="${t.id}" ${t.id===p.site_manager_id?'selected':''}>${t.name}</option>`).join('');
+  document.getElementById('ep-value').value = p.total_value || 0;
+  document.getElementById('ep-start').value = p.start_date || '';
+  document.getElementById('ep-target').value = p.target_handover_date || '';
+  document.getElementById('ep-actual').value = p.actual_handover_date || '';
+  document.getElementById('edit-project-modal').classList.add('open');
+}
+async function saveEditProject(){
+  const id = document.getElementById('ep-id').value;
+  const name = document.getElementById('ep-name').value.trim();
+  if(!name){ alert('Project name is required.'); return; }
+  await YS.update('projects', id, {
+    project_name: name,
+    city: document.getElementById('ep-city').value.trim(),
+    address: document.getElementById('ep-address').value.trim(),
+    status: document.getElementById('ep-status').value,
+    designer_id: document.getElementById('ep-designer').value || null,
+    site_manager_id: document.getElementById('ep-sitemgr').value || null,
+    total_value: Number(document.getElementById('ep-value').value)||0,
+    start_date: document.getElementById('ep-start').value || null,
+    target_handover_date: document.getElementById('ep-target').value || null,
+    actual_handover_date: document.getElementById('ep-actual').value || null
+  });
+  closeModal('edit-project-modal');
+  renderAll();
+  openProjectDetail(id);
+}
+
 function openLeadDetail(id){
   CURRENT_LEAD_ID=id;
   const l = YS.find('leads', id);
@@ -1176,6 +1313,7 @@ function renderProjects(){
 
 function openProjectDetail(id){
   const p = YS.find('projects', id);
+  document.getElementById('pm-edit-btn').dataset.pid = id;
   const l = YS.find('leads', p.lead_id);
   const stages = YS.all('project_stages').filter(s=>s.project_id===id).sort((a,b)=>a.stage_order-b.stage_order);
   const photos = YS.all('stage_photos').filter(ph=>ph.project_id===id);
