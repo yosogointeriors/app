@@ -228,6 +228,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
             <option value="referral">Referral</option>
             <option value="whatsapp">WhatsApp</option>
             <option value="manual">Manual</option>
+            <option value="urban_nest">Urban Nest</option>
           </select>
           <select id="f-city" onchange="renderLeads()">
             <option value="">All cities</option>
@@ -476,6 +477,13 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           <div class="fr"><label class="fl">GSTIN</label><input type="text" id="set-gstin"/></div>
           <div class="fr"><label class="fl">Company Address</label><textarea id="set-address"></textarea></div>
           <div class="fr"><label class="fl">Company Phone (shown on its own line — don't add this into the address above)</label><input type="text" id="set-company-phone" placeholder="e.g. 7337330557"/></div>
+          <div class="fr">
+            <label class="fl">Urban Nest Logo (used instead of the YOSOGO logo on quotations for leads/projects sourced as "Urban Nest" — everything else on the letterhead stays the same)</label>
+            <div id="urban-nest-logo-preview" style="margin-bottom:8px;"></div>
+            <input type="file" id="set-urban-nest-logo" accept=".png,.jpg,.jpeg"/>
+            <button class="btn btn-sm" style="margin-top:6px;" onclick="uploadUrbanNestLogo()">Upload Logo</button>
+            <div id="urban-nest-logo-progress" style="font-size:11.5px;color:var(--mut);margin-top:6px;display:none;"></div>
+          </div>
           <div class="fr"><label class="fl">Terms &amp; Conditions (numbered, one per line)</label><textarea id="set-terms" style="min-height:160px;"></textarea></div>
           <div class="fr"><label class="fl">Payment Terms (one per line)</label><textarea id="set-payterms" style="min-height:100px;"></textarea></div>
         </div>
@@ -509,7 +517,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           <select id="al-ptype"><option value="kitchen">Kitchen only</option><option value="wardrobe">Wardrobe only</option><option value="kitchen_wardrobe">Kitchen + Wardrobe</option><option value="full_home">Full Home Interiors</option></select>
         </div>
         <div class="fr"><label class="fl">Source</label>
-          <select id="al-source"><option value="manual">Manual / Walk-in</option><option value="website">Website</option><option value="referral">Referral</option><option value="whatsapp">WhatsApp</option></select>
+          <select id="al-source"><option value="manual">Manual / Walk-in</option><option value="website">Website</option><option value="referral">Referral</option><option value="whatsapp">WhatsApp</option><option value="urban_nest">Urban Nest</option></select>
         </div>
         <div class="fr"><label class="fl">Job Title</label><input type="text" id="al-job" placeholder="Optional"/></div>
         <div class="fr"><label class="fl">Exact Location</label><input type="text" id="al-exact-loc" placeholder="Optional — locality, landmark, pincode…"/></div>
@@ -766,7 +774,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
 const STATUS_LABEL = {new:'New',contacted:'Contacted',site_visit_scheduled:'Site Visit Scheduled',site_visit_done:'Site Visit Done',design_presented:'Design Presented',quotation_sent:'Quotation Sent',negotiation:'Negotiation',booked:'Booked',lost:'Lost'};
 const STATUS_PILL = {new:'p-inf',contacted:'p-inf',site_visit_scheduled:'p-wrn',site_visit_done:'p-wrn',design_presented:'p-wrn',quotation_sent:'p-wrn',negotiation:'p-wrn',booked:'p-ok',lost:'p-no'};
-const SOURCE_LABEL = {facebook_ad:'📘 Facebook Ad',website:'🌐 Website',referral:'🤝 Referral',whatsapp:'💬 WhatsApp',manual:'✍ Manual'};
+const SOURCE_LABEL = {facebook_ad:'📘 Facebook Ad',website:'🌐 Website',referral:'🤝 Referral',whatsapp:'💬 WhatsApp',manual:'✍ Manual',urban_nest:'🏠 Urban Nest'};
 // Suggested likelihood-to-convert by stage, used only when a lead has no
 // manually-set value yet — matches the same logic used in CRM.
 const STATUS_PROBABILITY = {new:10,contacted:20,site_visit_scheduled:30,site_visit_done:40,design_presented:50,quotation_sent:60,negotiation:75,booked:100,lost:0};
@@ -780,23 +788,43 @@ function renderDashboard(){
   const leads = YS.all('leads');
   const projects = YS.all('projects');
   const payments = YS.all('payments');
-  const totalRevenue = payments.filter(p=>p.verified).reduce((s,p)=>s+Number(p.amount||0),0);
-  const latestQuotesByProject = {};
-  YS.all('quotations').filter(q=>q.status==='sent').forEach(q=>{
-    const existing = latestQuotesByProject[q.project_id];
-    if(!existing || q.version > existing.version) latestQuotesByProject[q.project_id] = q;
-  });
-  const pipelineValue = Object.values(latestQuotesByProject).reduce((s,q)=>s+Number(q.total_amount||0),0);
+  const allQuotesSent = YS.all('quotations').filter(q=>q.status==='sent');
   const today = new Date().toDateString();
-  const newToday = leads.filter(l=>new Date(l.created_at).toDateString()===today).length;
 
-  document.getElementById('dash-stats').innerHTML = `
-    <div class="stat-card"><div class="stat-num">${leads.length}</div><div class="stat-lbl">Total Leads</div></div>
-    <div class="stat-card"><div class="stat-num">${newToday}</div><div class="stat-lbl">New Today</div></div>
-    <div class="stat-card"><div class="stat-num">${projects.filter(p=>p.status==='active').length}</div><div class="stat-lbl">Active Projects</div></div>
-    <div class="stat-card"><div class="stat-num">₹${(totalRevenue/100000).toFixed(1)}L</div><div class="stat-lbl">Revenue Collected</div></div>
-    <div class="stat-card"><div class="stat-num">₹${(pipelineValue/100000).toFixed(1)}L</div><div class="stat-lbl">Quoted Pipeline</div></div>
-  `;
+  function statsFor(leadSubset){
+    const leadIds = new Set(leadSubset.map(l=>l.id));
+    const projSubset = projects.filter(p=>leadIds.has(p.lead_id));
+    const projIds = new Set(projSubset.map(p=>p.id));
+    const revenue = payments.filter(p=>p.verified && projIds.has(p.project_id)).reduce((s,p)=>s+Number(p.amount||0),0);
+    const latest = {};
+    allQuotesSent.filter(q=>projIds.has(q.project_id)).forEach(q=>{
+      const existing = latest[q.project_id];
+      if(!existing || q.version > existing.version) latest[q.project_id] = q;
+    });
+    const pipeline = Object.values(latest).reduce((s,q)=>s+Number(q.total_amount||0),0);
+    const newToday = leadSubset.filter(l=>new Date(l.created_at).toDateString()===today).length;
+    return { total: leadSubset.length, newToday, active: projSubset.filter(p=>p.status==='active').length, revenue, pipeline };
+  }
+  function statsBlock(label, stats){
+    return `
+      <div style="display:flex;align-items:baseline;gap:8px;margin:${label?'18px':'0'} 0 8px;">
+        ${label?`<h3 style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--copper);">${label}</h3>`:''}
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num">${stats.total}</div><div class="stat-lbl">Total Leads</div></div>
+        <div class="stat-card"><div class="stat-num">${stats.newToday}</div><div class="stat-lbl">New Today</div></div>
+        <div class="stat-card"><div class="stat-num">${stats.active}</div><div class="stat-lbl">Active Projects</div></div>
+        <div class="stat-card"><div class="stat-num">₹${(stats.revenue/100000).toFixed(1)}L</div><div class="stat-lbl">Revenue Collected</div></div>
+        <div class="stat-card"><div class="stat-num">₹${(stats.pipeline/100000).toFixed(1)}L</div><div class="stat-lbl">Quoted Pipeline</div></div>
+      </div>`;
+  }
+
+  const yosogoLeads = leads.filter(l=>l.source!=='urban_nest');
+  const urbanNestLeads = leads.filter(l=>l.source==='urban_nest');
+  document.getElementById('dash-stats').outerHTML = `<div id="dash-stats">
+    ${statsBlock('', statsFor(yosogoLeads))}
+    ${urbanNestLeads.length ? statsBlock('Urban Nest', statsFor(urbanNestLeads)) : ''}
+  </div>`;
 
   const approvalsEl = document.getElementById('dash-approvals');
   if(approvalsEl){
@@ -1962,6 +1990,28 @@ function renderSettings(){
     document.getElementById('set-company-phone').value=s.company_phone||'';
     document.getElementById('set-terms').value=s.quotation_terms||'';
     document.getElementById('set-payterms').value=s.payment_terms_text||'';
+    const preview = document.getElementById('urban-nest-logo-preview');
+    if(preview) preview.innerHTML = s.urban_nest_logo_url ? `<img src="${s.urban_nest_logo_url}" style="height:50px;border-radius:6px;border:0.5px solid var(--bdr);"/>` : '<span style="font-size:11.5px;color:var(--mut);">No logo uploaded yet — quotations for Urban Nest leads will fall back to the YOSOGO logo until one is set.</span>';
+  }
+}
+async function uploadUrbanNestLogo(){
+  const fileInput = document.getElementById('set-urban-nest-logo');
+  const file = fileInput.files[0];
+  if(!file){ alert('Choose an image first.'); return; }
+  const progressEl = document.getElementById('urban-nest-logo-progress');
+  progressEl.style.display = 'block'; progressEl.textContent = 'Uploading…';
+  try{
+    const { url } = await YS.uploadFile('branding', file);
+    const s = YS.all('payment_settings')[0];
+    if(s) await YS.update('payment_settings', s.id, { urban_nest_logo_url: url });
+    else await YS.insert('payment_settings', { urban_nest_logo_url: url });
+    fileInput.value = '';
+    renderSettings();
+    alert('✓ Urban Nest logo saved — it will now show on quotations for leads sourced as Urban Nest.');
+  }catch(e){
+    alert('Upload failed: '+e.message);
+  }finally{
+    progressEl.style.display = 'none';
   }
 }
 async function saveSettings(){

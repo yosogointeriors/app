@@ -161,6 +161,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
       <div class="tab" id="tab-pipeline">
         <div class="page-title" id="pipe-title">My Pipeline</div>
         <div class="page-sub">Leads assigned to you — move each from first contact through to booking.</div>
+        <button class="btn btn-c" style="margin-bottom:14px;" onclick="openLeadForm()">+ Add Lead Manually</button>
         <div class="stat-grid" id="pipe-stats"></div>
         <div class="filter-row">
           <select id="f-status" onchange="renderPipeline()">
@@ -182,6 +183,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
             <option value="referral">Referral</option>
             <option value="whatsapp">WhatsApp</option>
             <option value="manual">Manual</option>
+            <option value="urban_nest">Urban Nest</option>
           </select>
           <select id="f-city" onchange="renderPipeline()">
             <option value="">All cities</option>
@@ -383,6 +385,33 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
 <!-- FLOOR PLAN UPLOAD MODAL -->
 <!-- EDIT QUOTATION CALCULATOR ITEM MODAL -->
 <!-- RECORD PAYMENT MODAL -->
+<!-- ADD LEAD MANUALLY MODAL -->
+<div class="modal-overlay" id="add-lead-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Add Lead Manually</h3><button class="modal-close" onclick="closeModal('add-lead-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-2col">
+        <div class="fr"><label class="fl">Name</label><input type="text" id="al-name"/></div>
+        <div class="fr"><label class="fl">Phone</label><input type="text" id="al-phone"/></div>
+        <div class="fr"><label class="fl">Email</label><input type="email" id="al-email"/></div>
+        <div class="fr"><label class="fl">City</label><input type="text" id="al-city" placeholder="Nellore"/></div>
+        <div class="fr"><label class="fl">Project Type</label>
+          <select id="al-ptype"><option value="kitchen">Kitchen only</option><option value="wardrobe">Wardrobe only</option><option value="kitchen_wardrobe">Kitchen + Wardrobe</option><option value="full_home">Full Home Interiors</option></select>
+        </div>
+        <div class="fr"><label class="fl">Source</label>
+          <select id="al-source"><option value="manual">Manual / Walk-in</option><option value="website">Website</option><option value="referral">Referral</option><option value="whatsapp">WhatsApp</option><option value="urban_nest">Urban Nest</option></select>
+        </div>
+        <div class="fr"><label class="fl">Job Title</label><input type="text" id="al-job" placeholder="Optional"/></div>
+        <div class="fr"><label class="fl">Exact Location</label><input type="text" id="al-exact-loc" placeholder="Optional — locality, landmark, pincode…"/></div>
+        <div class="fr"><label class="fl">Site Ready?</label>
+          <select id="al-site-ready"><option value="">Unknown</option><option value="yes">Yes</option><option value="no">No</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('add-lead-modal')">Cancel</button><button class="btn btn-c" onclick="saveNewLead()">Add Lead</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="record-payment-modal">
   <div class="modal-box">
     <div class="modal-head"><h3>Record Payment Received</h3><button class="modal-close" onclick="closeModal('record-payment-modal')">×</button></div>
@@ -758,22 +787,41 @@ function renderCrmDashboard(){
   const leads = YS.all('leads');
   const projects = YS.all('projects');
   const payments = YS.all('payments');
-  const totalRevenue = payments.filter(p=>p.verified).reduce((s,p)=>s+Number(p.amount||0),0);
-  const latestQuotesByProject = {};
-  YS.all('quotations').filter(q=>q.status==='sent').forEach(q=>{
-    const existing = latestQuotesByProject[q.project_id];
-    if(!existing || q.version > existing.version) latestQuotesByProject[q.project_id] = q;
-  });
-  const pipelineValue = Object.values(latestQuotesByProject).reduce((s,q)=>s+Number(q.total_amount||0),0);
+  const allQuotesSent = YS.all('quotations').filter(q=>q.status==='sent');
   const today = new Date().toDateString();
-  const newToday = leads.filter(l=>new Date(l.created_at).toDateString()===today).length;
-  el.innerHTML = `
-    <div class="stat-card"><div class="stat-num">${leads.length}</div><div class="stat-lbl">Total Leads</div></div>
-    <div class="stat-card"><div class="stat-num">${newToday}</div><div class="stat-lbl">New Today</div></div>
-    <div class="stat-card"><div class="stat-num">${projects.filter(p=>p.status==='active').length}</div><div class="stat-lbl">Active Projects</div></div>
-    <div class="stat-card"><div class="stat-num">₹${(totalRevenue/100000).toFixed(1)}L</div><div class="stat-lbl">Revenue Collected</div></div>
-    <div class="stat-card"><div class="stat-num">₹${(pipelineValue/100000).toFixed(1)}L</div><div class="stat-lbl">Quoted Pipeline</div></div>
-  `;
+
+  function statsFor(leadSubset){
+    const leadIds = new Set(leadSubset.map(l=>l.id));
+    const projSubset = projects.filter(p=>leadIds.has(p.lead_id));
+    const projIds = new Set(projSubset.map(p=>p.id));
+    const revenue = payments.filter(p=>p.verified && projIds.has(p.project_id)).reduce((s,p)=>s+Number(p.amount||0),0);
+    const latest = {};
+    allQuotesSent.filter(q=>projIds.has(q.project_id)).forEach(q=>{
+      const existing = latest[q.project_id];
+      if(!existing || q.version > existing.version) latest[q.project_id] = q;
+    });
+    const pipeline = Object.values(latest).reduce((s,q)=>s+Number(q.total_amount||0),0);
+    const newToday = leadSubset.filter(l=>new Date(l.created_at).toDateString()===today).length;
+    return { total: leadSubset.length, newToday, active: projSubset.filter(p=>p.status==='active').length, revenue, pipeline };
+  }
+  function statsBlock(label, stats){
+    return `
+      ${label?`<div style="margin:18px 0 8px;"><h3 style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--rose);">${label}</h3></div>`:''}
+      <div class="stat-grid" style="grid-template-columns:repeat(5,1fr);">
+        <div class="stat-card"><div class="stat-num">${stats.total}</div><div class="stat-lbl">Total Leads</div></div>
+        <div class="stat-card"><div class="stat-num">${stats.newToday}</div><div class="stat-lbl">New Today</div></div>
+        <div class="stat-card"><div class="stat-num">${stats.active}</div><div class="stat-lbl">Active Projects</div></div>
+        <div class="stat-card"><div class="stat-num">₹${(stats.revenue/100000).toFixed(1)}L</div><div class="stat-lbl">Revenue Collected</div></div>
+        <div class="stat-card"><div class="stat-num">₹${(stats.pipeline/100000).toFixed(1)}L</div><div class="stat-lbl">Quoted Pipeline</div></div>
+      </div>`;
+  }
+
+  const yosogoLeads = leads.filter(l=>l.source!=='urban_nest');
+  const urbanNestLeads = leads.filter(l=>l.source==='urban_nest');
+  el.outerHTML = `<div id="dash-stats">
+    ${statsBlock('', statsFor(yosogoLeads))}
+    ${urbanNestLeads.length ? statsBlock('Urban Nest', statsFor(urbanNestLeads)) : ''}
+  </div>`;
   const approvalsEl = document.getElementById('dash-approvals');
   if(approvalsEl){
     if((session.roles||[]).includes('sales_head')){
@@ -803,6 +851,25 @@ function renderCrmDashboard(){
       approvalsEl.innerHTML = '';
     }
   }
+}
+
+function openLeadForm(){ document.getElementById('add-lead-modal').classList.add('open'); }
+async function saveNewLead(){
+  const name=document.getElementById('al-name').value.trim();
+  const phone=document.getElementById('al-phone').value.trim();
+  if(!name||!phone){ alert('Name and phone are required.'); return; }
+  const siteReadyVal = document.getElementById('al-site-ready').value;
+  await YS.insert('leads',{
+    name, phone, email:document.getElementById('al-email').value.trim(),
+    city:document.getElementById('al-city').value.trim(),
+    project_type:document.getElementById('al-ptype').value,
+    source:document.getElementById('al-source').value,
+    job_title:document.getElementById('al-job').value.trim(),
+    exact_location:document.getElementById('al-exact-loc').value.trim(),
+    site_ready: siteReadyVal==='' ? null : siteReadyVal==='yes',
+    status:'new', assigned_to: session.id
+  });
+  closeModal('add-lead-modal'); renderAll(); showTab('pipeline');
 }
 
 function renderPipeline(){
@@ -842,7 +909,7 @@ function renderPipeline(){
       <td><b>${l.name}</b><br><span style="color:var(--mut);font-size:11.5px;">${l.phone}</span></td>
       <td>${(l.project_type||'').replace('_',' + ')||'—'}<br><span style="color:var(--mut);font-size:11px;">${l.bhk||''} ${l.budget_range?'· ₹'+l.budget_range:''}</span></td>
       <td>${l.city||'—'}</td>
-      <td>${l.source==='facebook_ad'?'📘 FB Ad':l.source}</td>
+      <td>${l.source==='facebook_ad'?'📘 FB Ad':l.source==='urban_nest'?'🏠 Urban Nest':l.source}</td>
       <td><span class="pill ${STATUS_PILL[l.status]}">${STATUS_LABEL[l.status]}</span>${l.site_ready===true?' <span class="pill p-ok">✓ Ready</span>':''}</td>
       <td><span class="pill ${probabilityPillClass(leadProbability(l))}">${leadProbability(l)}%</span></td>
       <td>${q ? `₹${Number(q.total_amount||0).toLocaleString('en-IN')}<br><span style="color:var(--mut);font-size:10.5px;cursor:pointer;text-decoration:underline;" onclick="event.stopPropagation();${q.source==='offline'?`window.open('${q.file_url}','_blank')`:`downloadQuotationPDF('${q.id}')`}">${q.source==='offline'?'View File':'Download PDF'}</span>` : '<span style="color:var(--hnt);">—</span>'}</td>

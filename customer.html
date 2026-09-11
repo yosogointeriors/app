@@ -478,7 +478,8 @@ async function downloadMyQuotation(quoteId){
   const q = YS.find('quotations', quoteId);
   if(!q) return;
   const settings = YS.all('payment_settings')[0] || {};
-  const lead = { name: (session && session.name) || (PROJECT ? PROJECT.project_name : '') };
+  const realLead = PROJECT && PROJECT.lead_id ? YS.find('leads', PROJECT.lead_id) : null;
+  const lead = { name: (session && session.name) || (PROJECT ? PROJECT.project_name : ''), source: realLead ? realLead.source : null };
   const html = YS.renderQuotationHTML(q, lead, settings);
   const blob = new Blob([html], {type:'text/html'});
   window.open(URL.createObjectURL(blob), '_blank');
