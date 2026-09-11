@@ -245,7 +245,7 @@ const YS = (function () {
   * { box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; color: #241A12; margin: 0; font-size: 15px; line-height: 1.5; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; background: #EFEAE0; padding: 16px 18px; border: 1px solid #d8cfba; }
-  .header img { height: 72px; max-width: 220px; object-fit: contain; }
+  .header img { height: 120px; max-width: 280px; object-fit: contain; }
   .header .title { font-size: 28px; font-weight: 700; letter-spacing: 2px; align-self: center; }
   .header .company { text-align: right; font-size: 13px; line-height: 1.6; }
   .header .company b { font-size: 15px; }
