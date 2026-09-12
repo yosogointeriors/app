@@ -330,6 +330,7 @@ tbody tr:hover td{background:var(--surf2);cursor:pointer;}
           <div class="adm-card-sub">Columns: Category, Item Name, Material Spec, Description, Unit Type (sqft or lump), Rate. Download the template, fill it in, then upload — new rows are added, existing items are untouched.</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <button class="btn btn-sm" onclick="downloadQCTemplate()">📥 Download Excel Template</button>
+            <button class="btn btn-sm" onclick="downloadQCMasterData()">📦 Download All Items (Current Data)</button>
             <input type="file" id="qc-excel-file" accept=".xlsx,.xls" style="max-width:280px;"/>
             <button class="btn btn-c btn-sm" onclick="uploadQCExcel()">📤 Upload &amp; Add Items</button>
           </div>
@@ -1574,6 +1575,19 @@ function downloadQCTemplate(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Quotation Items');
   XLSX.writeFile(wb, 'yosogo_quotation_catalog_template.xlsx');
+}
+function downloadQCMasterData(){
+  const items = YS.all('quotation_catalog').sort((a,b)=>a.category.localeCompare(b.category)||a.item_name.localeCompare(b.item_name));
+  const rows = [['Category','Item Name','Material Spec','Description','Unit Type','Rate','Include In All Quotations','Active']];
+  items.forEach(q=>{
+    rows.push([q.category, q.item_name, q.material_spec||'', q.description||'', q.unit_type, Number(q.rate)||0, q.default_include?'Yes':'No', q.active===false?'No':'Yes']);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:20},{wch:32},{wch:24},{wch:45},{wch:12},{wch:10},{wch:14},{wch:9}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Quotation Catalog');
+  const dateStr = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `yosogo_quotation_catalog_${dateStr}.xlsx`);
 }
 
 async function uploadQCExcel(){
