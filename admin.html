@@ -1200,7 +1200,10 @@ function openLeadDetail(id){
           : '<span class="pill p-inf">Uploaded</span>';
         return `<div style="display:flex;justify-content:space-between;align-items:center;border:0.5px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
           <div><a href="${f.file_url}" target="_blank" style="font-size:12.5px;font-weight:600;">${f.file_name||'Floor Plan'}</a></div>
-          <div>${statusPill}</div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${statusPill}
+            <button class="btn btn-d btn-xs" onclick="deleteFloorPlanAdmin('${f.id}','${id}')">Delete</button>
+          </div>
         </div>`;
       }).join('');
     })()}</div>
@@ -1221,6 +1224,12 @@ async function generateLeadCustomerLogin(id){
     const { pin } = await YS.setCustomerPin({ lead_id: id, name: l.name, phone: l.phone });
     alert(`🔑 Customer login ready for ${l.name}\n\nPhone: ${l.phone}\nPIN: ${pin}\n\nShare this with them directly — they can log in at the customer portal now, even before their project is booked. Find them anytime in the Customers tab.`);
   }catch(e){ alert('Could not generate login: '+e.message); }
+}
+async function deleteFloorPlanAdmin(floorPlanId, leadId){
+  if(!confirm('Remove this floor plan? This can\'t be undone.')) return;
+  await YS.remove('floor_plans', floorPlanId);
+  renderAll();
+  if(leadId) openLeadDetail(leadId);
 }
 async function quickUpdateStatus(id){
   const v = document.getElementById('lm-status').value;

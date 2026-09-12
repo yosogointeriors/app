@@ -1198,6 +1198,7 @@ function openLeadDetail(id){
           ${statusPill}
           ${f.status==='analyzed' ? `<button class="btn btn-xs" onclick="openFloorPlanReview('${f.id}')">Review</button>` : ''}
           ${f.status==='failed' ? `<button class="btn btn-xs" onclick="retryFloorPlanAnalysis('${f.id}')">Retry</button>` : ''}
+          <button class="btn btn-d btn-xs" onclick="deleteFloorPlan('${f.id}')">Delete</button>
         </div>
       </div>`;
     }).join('') || '<span style="color:var(--mut);font-size:12.5px;">None uploaded yet.</span>'}</div>
@@ -1383,6 +1384,12 @@ async function retryFloorPlanAnalysis(floorPlanId){
     await YS.refresh('floor_plans');
     alert('Analysis failed: '+e.message);
   }
+}
+async function deleteFloorPlan(floorPlanId){
+  if(!confirm('Remove this floor plan? This can\'t be undone.')) return;
+  await YS.remove('floor_plans', floorPlanId);
+  renderAll();
+  if(CURRENT_LEAD_ID) openLeadDetail(CURRENT_LEAD_ID);
 }
 function floorPlanItemOptionsHTML(room, selectedId){
   if(!room) return '<option value="">— choose room first —</option>';
