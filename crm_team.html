@@ -1746,6 +1746,16 @@ function setCustomItemType(i, type){
 // elements, which kicked focus out after each character typed. Instead we
 // patch the model and surgically update just the derived read-outs
 // (sqft display, per-row amount, running totals) by element id.
+function setItemModel(i, modelId){
+  const m = modelId ? YS.find('design_catalog', modelId) : null;
+  // Snapshot the title/image at selection time rather than just storing the
+  // id — protects the quotation's record if that catalog item is later
+  // edited or removed from the Design Catalogue.
+  QITEMS[i].model_id = modelId || null;
+  QITEMS[i].model_title = m ? m.title : null;
+  QITEMS[i].model_image_url = m ? m.image_url : null;
+  renderQItems();
+}
 function updateItemField(i, field, val){
   QITEMS[i][field] = Number(val)||0;
   if(QITEMS[i].unit_type==='sqft' && (field==='length' || field==='height')){
@@ -1762,6 +1772,20 @@ function updateItemField(i, field, val){
 // Kept for the checklist-generated flow which still calls this by name.
 function updateQItemDims(i, field, val){ updateItemField(i, field, val); }
 function renderQItems(){
+  // Builds a <select>'s options for picking a Design Catalogue model to
+  // attach to a quotation line item, grouped by category.
+  function buildModelPickerOptions(selectedId){
+    const items = YS.all('design_catalog').filter(d=>d.active).sort((a,b)=>a.category.localeCompare(b.category)||a.title.localeCompare(b.title));
+    const byCategory = {};
+    items.forEach(d=>{ if(!byCategory[d.category]) byCategory[d.category]=[]; byCategory[d.category].push(d); });
+    let html = `<option value="">— No model selected —</option>`;
+    Object.keys(byCategory).sort().forEach(cat=>{
+      html += `<optgroup label="${cat}">`;
+      byCategory[cat].forEach(d=>{ html += `<option value="${d.id}" ${d.id===selectedId?'selected':''}>${d.title}</option>`; });
+      html += `</optgroup>`;
+    });
+    return html;
+  }
   document.getElementById('qitems').innerHTML = QITEMS.map((it,i)=>{
     // Upgrade any legacy custom items (old unit_type:'custom' scheme) in place
     // so they render with the same editable Lump/sqft toggle as new ones.
@@ -1809,11 +1833,19 @@ function renderQItems(){
       <option value="sqft" ${it.unit_type==='sqft'?'selected':''}>L × B (sqft)</option>
       <option value="sqft_direct" ${it.unit_type==='sqft_direct'?'selected':''}>Sqft — Direct Entry</option>
     </select>` : '';
+    const modelPicker = `<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:11px;color:var(--mut);">🖼 Model:</span>
+      <select onchange="setItemModel(${i},this.value)" style="width:auto;max-width:220px;font-size:11px;padding:3px 6px;">
+        ${buildModelPickerOptions(it.model_id)}
+      </select>
+      ${it.model_image_url ? `<a href="${it.model_image_url}" target="_blank" style="font-size:11px;">View${it.model_title?': '+it.model_title:''}</a>` : ''}
+    </div>`;
     return `<div style="border:0.5px solid var(--bdr);border-radius:8px;padding:10px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:10px;">
         <div style="flex:1;">
           ${header}
           <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">🏠 ${roomPicker} ${typePicker}</div>
+          ${modelPicker}
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <b id="amount-badge-${i}" style="font-size:13px;white-space:nowrap;">₹${amount.toLocaleString('en-IN')}</b>

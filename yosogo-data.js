@@ -220,7 +220,7 @@ const YS = (function () {
         return `
       <tr>
         <td class="no">${rowNum}</td>
-        <td class="item"><b>${it.item || ''}</b>${it.material_spec ? `<div class="desc">${it.material_spec}</div>` : ''}${it.description ? `<div class="item-desc">${it.description}</div>` : ''}${it.note ? `<div class="item-note">Note: ${it.note}</div>` : ''}</td>
+        <td class="item"><b>${it.item || ''}</b>${it.material_spec ? `<div class="desc">${it.material_spec}</div>` : ''}${it.description ? `<div class="item-desc">${it.description}</div>` : ''}${it.model_image_url ? `<div class="item-desc"><a href="${it.model_image_url}" target="_blank" style="color:#8A5B0B;">🖼 View Design${it.model_title ? ': '+it.model_title : ''}</a></div>` : ''}${it.note ? `<div class="item-note">Note: ${it.note}</div>` : ''}</td>
         <td class="num">${it.length || ''}</td>
         <td class="num">${it.height || ''}</td>
         <td class="num">${it.unit_type === 'lump' ? 'Lum' : (it.qty ? Number(it.qty).toFixed(1) : '')}</td>
