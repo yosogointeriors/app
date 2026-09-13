@@ -220,7 +220,20 @@ const YS = (function () {
         return `
       <tr>
         <td class="no">${rowNum}</td>
-        <td class="item"><b>${it.item || ''}</b>${it.material_spec ? `<div class="desc">${it.material_spec}</div>` : ''}${it.description ? `<div class="item-desc">${it.description}</div>` : ''}${it.model_image_url ? `<div style="margin-top:5px;display:flex;align-items:center;gap:8px;"><a href="${it.model_image_url}" target="_blank"><img src="${it.model_image_url}" style="width:52px;height:52px;object-fit:cover;border-radius:5px;border:1px solid #d8cfba;display:block;"/></a><a href="${it.model_image_url}" target="_blank" style="color:#8A5B0B;font-size:11.5px;">🖼 View Design${it.model_title ? ': '+it.model_title : ''}</a></div>` : ''}${it.note ? `<div class="item-note">Note: ${it.note}</div>` : ''}</td>
+        <td class="item">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <div style="flex:1;min-width:0;">
+              <b>${it.item || ''}</b>
+              ${it.material_spec ? `<div class="desc">${it.material_spec}</div>` : ''}
+              ${it.description ? `<div class="item-desc">${it.description}</div>` : ''}
+              ${it.note ? `<div class="item-note">Note: ${it.note}</div>` : ''}
+            </div>
+            ${it.model_image_url ? `<div style="flex-shrink:0;text-align:center;">
+              <a href="${it.model_image_url}" target="_blank"><img src="${it.model_image_url}" style="width:130px;height:130px;object-fit:cover;border-radius:6px;border:1px solid #d8cfba;display:block;"/></a>
+              <a href="${it.model_image_url}" target="_blank" style="color:#8A5B0B;font-size:10.5px;display:block;margin-top:3px;">🖼 ${it.model_title || 'View Design'}</a>
+            </div>` : ''}
+          </div>
+        </td>
         <td class="num">${it.length || ''}</td>
         <td class="num">${it.height || ''}</td>
         <td class="num">${it.unit_type === 'lump' ? 'Lum' : (it.qty ? Number(it.qty).toFixed(1) : '')}</td>
