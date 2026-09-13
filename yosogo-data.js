@@ -257,11 +257,11 @@ const YS = (function () {
   @page { margin: 18mm 14mm; }
   * { box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; color: #241A12; margin: 0; font-size: 15px; line-height: 1.5; }
-  .header { display: grid; grid-template-columns: 320px 1fr 320px; align-items: center; background: #EFEAE0; padding: 16px 20px; border: 1px solid #d8cfba; gap: 18px; }
-  .header img { height: 90px; max-width: 200px; object-fit: contain; }
-  .header .title { font-size: 22px; font-weight: 700; letter-spacing: 2px; text-align: center; white-space: nowrap; }
-  .header .company { text-align: right; font-size: 11.5px; line-height: 1.6; }
-  .header .company b { font-size: 13px; }
+  .header { position: relative; background: #EFEAE0; padding: 16px 20px; border: 1px solid #d8cfba; min-height: 185px; }
+  .header img { height: 80px; max-width: 260px; object-fit: contain; display: block; }
+  .header .title { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 22px; font-weight: 700; letter-spacing: 2px; white-space: nowrap; }
+  .header .company { position: absolute; right: 20px; top: 16px; text-align: right; font-size: 11px; line-height: 1.55; width: 320px; }
+  .header .company b { font-size: 12.5px; }
   .metabar { display: flex; justify-content: space-between; background: #F6F2E9; border: 1px solid #d8cfba; border-top: none; padding: 8px 18px; font-size: 13.5px; }
   .client { padding: 10px 18px; border: 1px solid #d8cfba; border-top: none; font-size: 14.5px; }
   table { width: 100%; border-collapse: collapse; margin-top: 0; }
