@@ -258,7 +258,7 @@ const YS = (function () {
   * { box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; color: #241A12; margin: 0; font-size: 15px; line-height: 1.5; }
   .header { position: relative; background: #EFEAE0; padding: 16px 20px; border: 1px solid #d8cfba; min-height: 185px; }
-  .header img { height: 80px; max-width: 260px; object-fit: contain; display: block; }
+  .header img { width: 165px; height: auto; max-height: 85px; object-fit: contain; display: block; }
   .header .title { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 22px; font-weight: 700; letter-spacing: 2px; white-space: nowrap; }
   .header .company { position: absolute; right: 20px; top: 16px; text-align: right; font-size: 11px; line-height: 1.55; width: 320px; }
   .header .company b { font-size: 12.5px; }
